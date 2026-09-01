@@ -1,0 +1,9 @@
+City,Long_Term_Fundamentals_Score,Fundamentals_Rank,Current_Market_Momentum_Score,Momentum_Rank,Pct_Rank_1,Pct_Top_3,Average_Rank,Robustness_Profile,Current_Market_Regime
+Plano,42.03330063528655,6,83.94878088254598,1,51.7,89.0,1.9289,Highly Robust,Relatively Stable
+Melissa,62.0775856519011,2,59.53928047399721,3,20.93,81.06,2.4682,Highly Robust,Mixed + Transitional
+Celina,91.01702973788994,1,22.77047175657914,8,23.13,48.66,3.861,Moderately Robust,Demand Growth + Supply Pressure
+McKinney,40.91358645014039,7,61.79285022731544,2,0.0,30.39,4.4187,Weight Sensitive,Mixed + Transitional
+Frisco,48.10823873998224,4,56.158461194059655,5,0.8200000000000001,25.25,4.492,Weight Sensitive,Relatively Stable
+Princeton,30.78633642590337,8,58.98298245521156,4,3.38,19.88,5.9488,Weight Sensitive,Recovery + Repricing
+Prosper,56.59436734563846,3,36.868232756803636,7,0.04,4.87,6.2129,Consistently Lower Ranked,Mixed + Transitional
+Anna,42.29585027352,5,39.56538532483799,6,0.0,0.89,6.6695,Consistently Lower Ranked,Demand Growth + Supply Pressure
