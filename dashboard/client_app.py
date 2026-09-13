@@ -7,6 +7,23 @@ import time
 
 from pdf_report import build_market_comparison_pdf
 
+from raw_data_pipeline import (
+    MARKET_ACTIVITY_COLUMNS,
+    build_model_outputs,
+    check_market_coverage,
+    process_home_values,
+    process_market_activity,
+    process_population,
+    process_permits,
+    process_raw_market_activity,
+    process_wide_home_values,
+    read_bps_permit_upload,
+    read_census_population_upload,
+    read_csv_upload,
+    read_large_redfin_upload,
+    validate_sources,
+)
+
 # ------------------------------------------------------------
 # PAGE CONFIG
 # ------------------------------------------------------------
@@ -2640,9 +2657,36 @@ if "pending_analysis_data" not in st.session_state:
 if "validation_errors" not in st.session_state:
     st.session_state.validation_errors = []
 
+if "analysis_features" not in st.session_state:
+    st.session_state.analysis_features = market.copy()
+
+if "uploaded_time_series" not in st.session_state:
+    st.session_state.uploaded_time_series = {}
+
+if "analysis_source_label" not in st.session_state:
+    st.session_state.analysis_source_label = (
+        "Included North Dallas dataset"
+    )
+
+if "excluded_uploaded_markets" not in st.session_state:
+    st.session_state.excluded_uploaded_markets = []
+
+if "available_uploaded_markets" not in st.session_state:
+    st.session_state.available_uploaded_markets = []
+
+if "selected_uploaded_markets" not in st.session_state:
+    st.session_state.selected_uploaded_markets = []
+
+if "market_selection_mode" not in st.session_state:
+    st.session_state.market_selection_mode = "All markets"
+
 def reset_dataset_validation():
     st.session_state.dataset_approved = False
     st.session_state.validation_errors = []
+    st.session_state.excluded_uploaded_markets = []
+    st.session_state.available_uploaded_markets = []
+    st.session_state.selected_uploaded_markets = []
+    st.session_state.market_selection_mode = "All markets"
 
 def mark_strategy_custom():
     """Mark the strategy as custom after a slider is adjusted."""
@@ -2697,6 +2741,7 @@ if (
                 [
                     "Use included North Dallas data",
                     "Upload a market scoring file",
+                    "Build from original source files",
                 ],
                 key="setup_data_source",
                 on_change=reset_dataset_validation,
@@ -2740,7 +2785,7 @@ if (
                     unsafe_allow_html=True,
                 )
 
-            else:
+            elif data_source == "Upload a market scoring file":
 
                 uploaded_file = st.file_uploader(
 
@@ -2886,6 +2931,379 @@ if (
                         st.session_state.validation_errors = (
                             validation_errors
                         )
+            else:
+                st.markdown("### Upload original market data")
+
+                st.caption(
+                    "Follow the guide to find the required data. "
+                    "The files must use the column format accepted by this dashboard."
+                )
+
+                with st.expander(
+                    "Step-by-step: How to find the four files",
+                    expanded=False,
+                ):
+                    st.markdown(
+                        """
+                        Use the instructions below to download one file for each
+                        category. Try to select the same cities in every file.
+
+                        ### 1. Download home-value history
+
+                        1. Open the [Zillow Research Data page](https://www.zillow.com/research/data/).
+                        2. Scroll to **Home Values**.
+                        3. Find **Zillow Home Value Index (ZHVI)**.
+                        4. Select **City** for the geography.
+                        5. Select **All Homes** and **Smoothed, Seasonally Adjusted**.
+                        6. Click **Download**.
+                        7. Upload the downloaded CSV under **Home-value history**.
+
+                        The Zillow file normally includes every available city.
+                        You do not need to download each city separately.
+
+                        ---
+
+                        ### 2. Download housing-market activity
+
+                        1. Open the [Redfin Data Center Downloads page](https://www.redfin.com/news/data-center/downloads/).
+                        2. Select **Housing Market Tracker**.
+                        3. Choose the **Monthly** download.
+                        4. Select **Cities** as the region type.
+                        5. Download the data file.
+                        6. Upload it under **Market activity**.
+
+                        Before uploading, confirm that the file contains information
+                        for homes sold, inventory, months of supply, and the
+                        sale-to-list ratio.
+
+                        ---
+
+                        ### 3. Download population estimates
+
+                        1. Open the [Census City and Town Population page](https://www.census.gov/data/tables/time-series/demo/popest/2020s-total-cities-and-towns.html).
+                        2. Scroll to the newest section labeled **Vintage**.
+                        3. Find **City and Town Population**.
+                        4. Select the downloadable CSV for your state or the national
+                        file.
+                        5. Open the file in Google Sheets or Excel and save as CSV
+                        6. Upload it under **Population estimates**.
+
+                        Use the newest available vintage. Do not combine population
+                        files from different vintages.
+
+                        ---
+
+                        ### 4. Download building-permit data
+
+                        1. Open the [Census Building Permits Survey place-level data page](https://www2.census.gov/econ/bps/Place/).
+                        2. Select the region containing the cities you want to analyze:
+
+                        - Northeast
+                        - Midwest
+                        - South
+                        - West
+
+                        3. Choose the date range for your analysis. You must download **one annual file for each year** in that range.
+                        4. For the most recent analysis, download the annual files for **2020 through 2025**—six files in total.
+                        5. In the selected region folder, press **Command + F** on Mac or **Ctrl + F** on Windows and search for each year.
+                        6. Select filenames ending in **`a.txt`**, which indicates complete annual totals. A filename such as `we2025a.txt` means:
+
+                        - `we` identifies the region.
+                        - `2025` identifies the year.
+                        - `a` means annual totals.
+
+                        7. Right click each file and press "Save link as" and download it to your computer.
+                        8. Open each downloaded file in Excel or Numbers as comma-separated data.
+                        9. Filter each file to your chosen state and cities.
+                        10. Add the correct year to each group of records and combine all years into one spreadsheet.
+                        11. Format the combined spreadsheet with these columns:
+
+                            `City`, `State`, `Year`, `Total_Units`
+
+                        12. Save the combined spreadsheet as a CSV and upload it under **Residential building permits**.
+
+                        Use the same date range for every city so the model can compare markets fairly. Avoid filenames ending in `c` or `y`, because they contain monthly or year-to-date data rather than complete annual results.
+
+                        ---
+
+                        ### Final check before uploading
+
+                        Make sure:
+
+                        - All four files cover the same cities.
+                        - All four files use city-level data.
+                        - The home-value file contains at least five years.
+                        - The files are saved as CSV files.
+                        - Missing values have not been replaced with zero.
+                        """
+                    )
+
+                st.info(
+                    "Important: all files must describe the same geographic level. "
+                    "Do not combine city data with county or metropolitan-area data."
+                )
+
+                home_value_file = st.file_uploader(
+                    "Home-value history",
+                    type=["csv"],
+                    key="raw_home_values",
+                    help=(
+                        "Download city-level Zillow Home Value Index history "
+                        "from Zillow Research. Include at least five years."
+                    ),
+                )
+
+                market_activity_file = st.file_uploader(
+                    "Market activity",
+                    type=["csv"],
+                    key="raw_market_activity",
+                    help=(
+                        "Download monthly city-level housing activity from "
+                        "the Redfin Data Center."
+                    ),
+                )
+
+                population_file = st.file_uploader(
+                    "Population estimates",
+                    type=["csv"],
+                    key="raw_population",
+                    help=(
+                        "Download annual city and town population estimates "
+                        "from the U.S. Census Bureau."
+                    ),
+                )
+
+                permit_files = st.file_uploader(
+                    "Residential building permits",
+                    type=["csv", "txt"],
+                    accept_multiple_files=True,
+                    key="permit_files",
+                )
+
+                all_files_uploaded = (
+                    home_value_file is not None
+                    and market_activity_file is not None
+                    and population_file is not None
+                    and len(permit_files) > 0
+                )
+
+                if not all_files_uploaded:
+                    st.info(
+                        "Upload all four files to begin the compatibility check."
+                    )
+
+                if all_files_uploaded and st.button(
+                    "Validate & Build Market Dataset",
+                    type="primary",
+                    width="stretch",
+                    key="validate_raw_sources",
+                ):
+                    try:
+                        with st.status(
+                            "Reviewing uploaded source files...",
+                            expanded=True,
+                        ) as status:
+
+                            st.write("Reading the files...")
+
+                            home_value_df = read_csv_upload(
+                                home_value_file
+                            )
+
+                            market_activity_df = read_large_redfin_upload(
+                                market_activity_file
+                            )
+
+                            population_df = read_census_population_upload(
+                                population_file
+                            )
+
+                            st.write("Standardizing columns and values...")
+
+                            if "Home_Value" in home_value_df.columns:
+                                processed_home_values = (
+                                    process_home_values(home_value_df)
+                                )
+                            else:
+                                processed_home_values = (
+                                    process_wide_home_values(
+                                        home_value_df
+                                    )
+                                )
+
+                            if set(MARKET_ACTIVITY_COLUMNS).issubset(
+                                market_activity_df.columns
+                            ):
+                                processed_activity = process_market_activity(
+                                    market_activity_df
+                                )
+                            else:
+                                processed_activity = process_raw_market_activity(
+                                    market_activity_df
+                                )
+
+                            processed_population = (
+                                process_population(
+                                    population_df
+                                )
+                            )
+
+                            processed_permit_frames = []
+
+                            for permit_file in permit_files:
+                                raw_permit_df = read_bps_permit_upload(
+                                    permit_file
+                                )
+
+                                processed_permit_frames.append(
+                                    process_permits(raw_permit_df)
+                                )
+
+                            processed_permits = pd.concat(
+                                processed_permit_frames,
+                                ignore_index=True,
+                            )
+
+                            processed_permits = (
+                                processed_permits
+                                .drop_duplicates(
+                                    subset=["Market_ID", "Year"],
+                                    keep="last",
+                                )
+                                .sort_values(["Market_ID", "Year"])
+                                .reset_index(drop=True)
+                            )
+
+                            analysis_states = set(
+                                processed_population["State"]
+                                .dropna()
+                                .astype(str)
+                                .str.strip()
+                                .unique()
+                            )
+
+                            processed_home_values = processed_home_values[
+                                processed_home_values["State"].isin(analysis_states)
+                            ].copy()
+
+                            processed_activity = processed_activity[
+                                processed_activity["State"].isin(analysis_states)
+                            ].copy()
+
+                            processed_permits = processed_permits[
+                                processed_permits["State"].isin(analysis_states)
+                            ].copy()
+
+                            st.write("Checking file quality...")
+
+                            checks = validate_sources(
+                                processed_home_values,
+                                processed_activity,
+                                processed_population,
+                                processed_permits,
+                            )
+
+                            coverage_check, common_markets, excluded = (
+                                check_market_coverage(
+                                    processed_home_values,
+                                    processed_activity,
+                                    processed_population,
+                                    processed_permits,
+                                )
+                            )
+
+                            checks.append(coverage_check)
+
+                            failed_checks = [
+                                check
+                                for check in checks
+                                if not check["passed"]
+                            ]
+
+                            for check in checks:
+                                icon = "✓" if check["passed"] else "✕"
+
+                                st.write(
+                                    f"{icon} **{check['name']}** — "
+                                    f"{check['detail']}"
+                                )
+
+                            if failed_checks:
+                                st.session_state.dataset_approved = False
+                                st.session_state.validation_errors = [
+                                    f"{check['name']}: {check['detail']}"
+                                    for check in failed_checks
+                                ]
+
+                                status.update(
+                                    label="Dataset needs attention",
+                                    state="error",
+                                    expanded=True,
+                                )
+
+                            else:
+                                st.write("Calculating market measurements...")
+                                st.write("Running scoring and robustness analysis...")
+
+                                outputs = build_model_outputs(
+                                    processed_home_values,
+                                    processed_activity,
+                                    processed_population,
+                                    processed_permits,
+                                )
+
+                                st.session_state.pending_analysis_data = (
+                                    outputs["decision"].copy()
+                                )
+
+                                st.session_state.analysis_features = (
+                                    outputs["features"].copy()
+                                )
+
+                                st.session_state.uploaded_time_series = {
+                                    "home_values": outputs["home_values"],
+                                    "market_activity": (
+                                        outputs["market_activity"]
+                                    ),
+                                    "population": outputs["population"],
+                                    "permits": outputs["permits"],
+                                }
+
+                                st.session_state.analysis_source_label = (
+                                    "User-uploaded source files"
+                                )
+
+                                st.session_state.excluded_uploaded_markets = (
+                                    excluded
+                                )
+
+                                st.session_state.available_uploaded_markets = (
+                                    sorted(common_markets)
+                                )
+
+                                st.session_state.selected_uploaded_markets = (
+                                    sorted(common_markets)
+                                )
+
+                                st.session_state.market_selection_mode = "All markets"
+
+                                st.session_state.dataset_approved = True
+                                st.session_state.validation_errors = []
+
+                                status.update(
+                                    label=(
+                                        f"Dataset approved — "
+                                        f"{len(outputs['decision'])} markets ready"
+                                    ),
+                                    state="complete",
+                                    expanded=True,
+                                )
+
+                    except Exception as error:
+                        st.session_state.dataset_approved = False
+                        st.session_state.validation_errors = [
+                            str(error)
+                        ]
 
             if st.session_state.validation_errors:
                 for validation_error in (
@@ -2928,12 +3346,144 @@ if (
 
             # Show Continue for either approved data source.
             if st.session_state.dataset_approved:
+                
+                if st.session_state.uploaded_time_series:
+
+                    available_markets = (
+                        st.session_state.available_uploaded_markets
+                    )
+
+                    st.markdown("### Choose markets to analyze")
+
+                    st.caption(
+                        "Analyze every compatible market or select specific "
+                        "cities. At least three markets are required."
+                    )
+
+                    selection_mode = st.radio(
+                        "Market selection",
+                        options=[
+                            "All markets",
+                            "Select specific cities",
+                        ],
+                        horizontal=True,
+                        key="market_selection_mode",
+                        label_visibility="collapsed",
+                    )
+
+                    if selection_mode == "All markets":
+                        selected_markets = available_markets
+
+                        st.info(
+                            f"All {len(available_markets)} compatible markets "
+                            "will be analyzed."
+                        )
+
+                    else:
+                        previous_selection = [
+                            market
+                            for market in st.session_state.selected_uploaded_markets
+                            if market in available_markets
+                        ]
+
+                        selected_markets = st.multiselect(
+                            "Cities to analyze",
+                            options=available_markets,
+                            default=previous_selection[:10],
+                            placeholder="Search for a city...",
+                            key="uploaded_market_multiselect",
+                        )
+
+                        st.caption(
+                            f"{len(selected_markets)} of "
+                            f"{len(available_markets)} markets selected"
+                        )
+
+                    st.session_state.selected_uploaded_markets = (
+                        selected_markets
+                    )
+
+                    selection_is_valid = len(selected_markets) >= 3
+
+                    if not selection_is_valid:
+                        st.warning(
+                            "Select at least three cities so the model can "
+                            "calculate meaningful comparative rankings."
+                        )
+
+                else:
+                    # Preserve the existing included North Dallas behavior.
+                    selected_markets = []
+                    selection_is_valid = True
 
                 if st.button(
                     "Generate Investment Strategy",
                     width="stretch",
                     key="continue_to_strategy",
+                    disabled=not selection_is_valid,
                 ):
+
+                    if st.session_state.uploaded_time_series:
+                        source_tables = (
+                            st.session_state.uploaded_time_series
+                        )
+
+                        selected_ids = set(selected_markets)
+
+                        selected_home_values = source_tables[
+                            "home_values"
+                        ].loc[
+                            lambda df: df["Market_ID"].isin(selected_ids)
+                        ].copy()
+
+                        selected_activity = source_tables[
+                            "market_activity"
+                        ].loc[
+                            lambda df: df["Market_ID"].isin(selected_ids)
+                        ].copy()
+
+                        selected_population = source_tables[
+                            "population"
+                        ].loc[
+                            lambda df: df["Market_ID"].isin(selected_ids)
+                        ].copy()
+
+                        selected_permits = source_tables[
+                            "permits"
+                        ].loc[
+                            lambda df: df["Market_ID"].isin(selected_ids)
+                        ].copy()
+
+                        selected_outputs = build_model_outputs(
+                            selected_home_values,
+                            selected_activity,
+                            selected_population,
+                            selected_permits,
+                        )
+
+                        st.session_state.pending_analysis_data = (
+                            selected_outputs["decision"].copy()
+                        )
+
+                        st.session_state.analysis_features = (
+                            selected_outputs["features"].copy()
+                        )
+
+                        st.session_state.uploaded_time_series = {
+                            "home_values": (
+                                selected_outputs["home_values"].copy()
+                            ),
+                            "market_activity": (
+                                selected_outputs["market_activity"].copy()
+                            ),
+                            "population": (
+                                selected_outputs["population"].copy()
+                            ),
+                            "permits": (
+                                selected_outputs["permits"].copy()
+                            ),
+                        }
+
                     st.session_state.setup_stage = 2
                     st.rerun()
     
@@ -3424,6 +3974,86 @@ if (
 
 analysis_decision = st.session_state.analysis_data.copy()
 
+# Select the time-series source used by the results charts.
+if st.session_state.uploaded_time_series:
+    uploaded_series = st.session_state.uploaded_time_series
+
+    active_zhvi = (
+        uploaded_series["home_values"]
+        .copy()
+        .rename(columns={"Home_Value": "ZHVI"})
+    )
+
+    active_population = (
+        uploaded_series["population"]
+        .copy()
+    )
+
+    active_permits = (
+        uploaded_series["permits"]
+        .copy()
+    )
+
+else:
+    active_zhvi = zhvi.copy()
+    active_population = population.copy()
+    active_permits = permits.copy()
+
+if "Market_ID" in active_population.columns:
+    active_population["Year"] = pd.to_numeric(
+        active_population["Year"],
+        errors="coerce",
+    )
+
+    active_population["Population"] = pd.to_numeric(
+        active_population["Population"],
+        errors="coerce",
+    )
+
+    active_population = active_population.sort_values(
+        ["Market_ID", "Year"]
+    )
+
+    active_population["Population_YoY_Pct"] = (
+        active_population
+        .groupby("Market_ID")["Population"]
+        .pct_change(fill_method=None)
+        .mul(100)
+    )
+
+if (
+    "Market_ID" in active_permits.columns
+    and "Total_Units" in active_permits.columns
+):
+    active_permits["Year"] = pd.to_numeric(
+        active_permits["Year"],
+        errors="coerce",
+    )
+
+    active_permits["Total_Units"] = pd.to_numeric(
+        active_permits["Total_Units"],
+        errors="coerce",
+    )
+
+    permit_population = active_population[
+        ["Market_ID", "Year", "Population"]
+    ].drop_duplicates(
+        subset=["Market_ID", "Year"]
+    )
+
+    active_permits = active_permits.merge(
+        permit_population,
+        on=["Market_ID", "Year"],
+        how="left",
+        validate="many_to_one",
+    )
+
+    active_permits["Permits_Per_1000_Residents"] = (
+        active_permits["Total_Units"]
+        / active_permits["Population"]
+        * 1000
+    )
+
 button_space, back_col = st.columns([5, 1])
 
 if st.button(
@@ -3434,6 +4064,20 @@ if st.button(
     st.session_state.setup_stage = 1
     st.session_state.dataset_approved = False
     st.session_state.validation_errors = []
+    st.session_state.analysis_features = market.copy()
+    st.session_state.uploaded_time_series = {}
+    st.session_state.analysis_source_label = (
+        "Included North Dallas dataset"
+    )
+    st.session_state.excluded_uploaded_markets = []
+    st.session_state.available_uploaded_markets = []
+    st.session_state.selected_uploaded_markets = []
+    st.session_state.market_selection_mode = "All markets"
+
+    if "uploaded_market_multiselect" in st.session_state:
+        del st.session_state.uploaded_market_multiselect
+    if "market_explorer_market_id" in st.session_state:
+        del st.session_state.market_explorer_market_id
     st.rerun()
 
 summary_tab, explore_tab = st.tabs(
@@ -3632,12 +4276,16 @@ with explore_tab:
         )
         st.stop()
 
+    active_market_features = (
+        st.session_state.analysis_features.copy()
+    )
+
     comparison_data = (
         match_results.loc[
             match_results["City"].isin(selected_markets)
         ]
         .merge(
-            market[
+            active_market_features[
                 [
                     "City",
                     "Population_CAGR_Pct",
@@ -3651,6 +4299,7 @@ with explore_tab:
             ],
             on="City",
             how="left",
+            validate="one_to_one",
         )
         .sort_values(
             "Preference_Match_Score",
@@ -3973,11 +4622,13 @@ with explore_tab:
         unsafe_allow_html=True,
     )
 
-    available_deep_dive_markets = [
-        city
-        for city in selected_markets
-        if city in set(market["City"])
-    ]
+    available_deep_dive_markets = (
+        match_results["Market_ID"]
+        .dropna()
+        .drop_duplicates()
+        .sort_values()
+        .tolist()
+    )
 
     if not available_deep_dive_markets:
         st.info(
@@ -3986,11 +4637,18 @@ with explore_tab:
         )
         st.stop()
 
-    selected_city = st.selectbox(
+    selected_market_id = st.selectbox(
         "Market to explore",
         options=available_deep_dive_markets,
-        key="market_explorer_city",
+        key="market_explorer_market_id",
     )
+
+    selected_result_row = match_results.loc[
+        match_results["Market_ID"] == selected_market_id
+    ].iloc[0]
+
+    selected_city = selected_result_row["City"]
+    selected_state = selected_result_row["State"]
 
     # --------------------------------------------------------
     # CITY SELECTOR
@@ -3998,14 +4656,17 @@ with explore_tab:
 
     # Pull the selected city's master-market metrics.
     city_data = (
-        market.loc[market["City"] == selected_city]
+        active_market_features.loc[
+            active_market_features["Market_ID"]
+            == selected_market_id
+        ]
         .iloc[0]
     )
 
     # Pull the selected city's final model results.
     city_result = (
         match_results.loc[
-            match_results["City"] == selected_city
+            match_results["Market_ID"] == selected_market_id
         ]
         .iloc[0]
     )
@@ -4052,10 +4713,14 @@ with explore_tab:
     # HOME VALUE TREND
     # --------------------------------------------------------
 
-    city_zhvi = (
-        zhvi.loc[zhvi["City"] == selected_city]
-        .copy()
-    )
+    if "Market_ID" in active_zhvi.columns:
+        city_zhvi = active_zhvi.loc[
+            active_zhvi["Market_ID"] == selected_market_id
+        ].copy()
+    else:
+        city_zhvi = active_zhvi.loc[
+            active_zhvi["City"] == selected_city
+        ].copy()
 
     city_zhvi["Date"] = pd.to_datetime(
         city_zhvi["Date"]
@@ -4157,7 +4822,7 @@ with explore_tab:
             f"""
             ### Home Value Trend
 
-            Historical Zillow Home Value Index for {selected_city}
+            Historical Zillow Home Value Index for {selected_city}, {selected_state}
             """
         )
 
@@ -4176,13 +4841,17 @@ with explore_tab:
     )
 
     # Population data for the selected city.
-    city_population = (
-        population.loc[
-            population["City"] == selected_city
-        ]
-        .copy()
-        .sort_values("Year")
-    )
+    if "Market_ID" in active_population.columns:
+        city_population = active_population.loc[
+            active_population["Market_ID"]
+            == selected_market_id
+        ].copy()
+    else:
+        city_population = active_population.loc[
+            active_population["City"] == selected_city
+        ].copy()
+
+    city_population = city_population.sort_values("Year")
 
     population_chart = (
         alt.Chart(city_population)
@@ -4269,13 +4938,17 @@ with explore_tab:
             )
 
     # Construction data for the selected city.
-    city_permits = (
-        permits.loc[
-            permits["City"] == selected_city
-        ]
-        .copy()
-        .sort_values("Year")
-    )
+    if "Market_ID" in active_permits.columns:
+        city_permits = active_permits.loc[
+            active_permits["Market_ID"]
+            == selected_market_id
+        ].copy()
+    else:
+        city_permits = active_permits.loc[
+            active_permits["City"] == selected_city
+        ].copy()
+
+    city_permits = city_permits.sort_values("Year")
 
     permits_chart = (
         alt.Chart(city_permits)
