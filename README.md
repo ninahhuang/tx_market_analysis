@@ -1,10 +1,63 @@
-# North Dallas Housing Market Analysis
+# Market Match: Housing Market Investment Screening
 
-An interactive housing-market screening dashboard comparing long-term growth fundamentals, current market momentum, construction activity, and ranking robustness across nine North Dallas markets.
+An interactive Streamlit dashboard for comparing housing markets based on long-term growth, current market conditions, and ranking stability.
 
-The project combines data from Zillow Research, the Redfin Data Center, and the U.S. Census Bureau to examine how market attractiveness changes with different investor priorities.
+The dashboard began as a comparison of nine North Dallas cities and now also allows users to upload data for other U.S. cities. It validates and standardizes the source files, calculates market scores, tests ranking stability, and presents the results through an investor-friendly dashboard and downloadable report.
 
-## Markets Analyzed
+## Live Dashboard
+
+[Open the deployed Streamlit dashboard](https://tx-market-analysis.streamlit.app/)
+
+> The complete national Redfin file can exceed the memory available on Streamlit Community Cloud. See [Deployment and large-file considerations](#deployment-and-large-file-considerations) before uploading very large files.
+
+## Project Purpose
+
+A market with rapid population growth or strong historical appreciation does not necessarily have strong current housing conditions. Fast-growing markets may also face:
+
+- Rising housing inventory
+- Elevated construction activity
+- Longer selling times
+- Slowing transaction activity
+- Weaker near-term price momentum
+
+At the same time, more mature markets may have slower demographic growth but stronger current demand, greater pricing stability, or more consistent rankings.
+
+This project separates those considerations into three decision areas:
+
+1. **Long-term fundamentals** — population growth, historical appreciation, and demographic trends.
+2. **Current market momentum** — pricing, sales activity, inventory, supply, and market balance.
+3. **Ranking robustness** — how consistently a market performs when investor priorities change.
+
+The result is a flexible market-screening tool rather than a single universal definition of the “best” market.
+
+## Key Features
+
+- Included North Dallas demonstration dataset
+- Upload support for completed market-scoring CSV files
+- Raw-data processing for user-selected U.S. markets
+- Animated dataset compatibility checks
+- Automatic column and value standardization
+- Cross-source city coverage validation
+- Selection of all compatible cities or individual markets
+- Three investor strategy presets
+- Adjustable fundamentals, momentum, and robustness weights
+- Custom-strategy detection when sliders are changed
+- Personalized preference-match scores
+- Market comparison cards
+- Individual market exploration
+- Historical home-value, population, and construction charts
+- Market warning factors with recommended next steps
+- Downloadable client comparison report
+
+## How the Dashboard Works
+
+### Step 1: Choose a dataset
+
+The dashboard provides three ways to begin.
+
+#### Option A: Use the included North Dallas data
+
+Use the project’s prepared dataset covering:
 
 - Anna
 - Celina
@@ -16,198 +69,189 @@ The project combines data from Zillow Research, the Redfin Data Center, and the 
 - Prosper
 - Richardson
 
-## Project Overview
+This option is ready for immediate analysis and is useful for demonstrations.
 
-Rapid population growth or historical appreciation does not necessarily indicate strong current housing-market conditions. A fast-growing market may also experience rising inventory, increased construction, longer selling times, or weaker near-term price momentum.
+#### Option B: Upload a market-scoring file
 
-This project separates market performance into two primary dimensions:
+Upload a completed CSV containing one row per market.
 
-1. **Long-Term Fundamentals** — demographic growth, historical home-value appreciation, and population-growth trends.
-2. **Current Market Momentum** — recent pricing, transaction activity, inventory, supply, and market-balance conditions.
+Required columns include:
 
-The analysis then evaluates how rankings change under different investor strategies and tests whether the results remain stable across 10,000 alternative weighting scenarios.
+- `City`
+- `Long_Term_Fundamentals_Score`
+- `Fundamentals_Rank`
+- `Current_Market_Momentum_Score`
+- `Momentum_Rank`
+- `Pct_Top_3`
+- `Average_Rank`
+- `Robustness_Profile`
+- `Current_Market_Regime`
 
-## Key Questions
+The dashboard checks:
 
-The project addresses the following questions:
+- Required columns
+- Minimum market coverage
+- Unique city names
+- Numeric formatting
+- Score ranges from 0 to 100
 
-- Which North Dallas markets have the strongest long-term growth fundamentals?
-- Which markets currently demonstrate the strongest housing-market momentum?
-- Where are population and residential construction expanding most rapidly?
-- Which markets are experiencing supply pressure or price corrections?
-- How do rankings change under different investor priorities?
-- Which markets remain competitive when model assumptions change?
-- Which markets offer the strongest balance between long-term growth and current conditions?
+#### Option C: Build from original source files
 
-## Interactive Dashboard
+Upload original city-level data from four sources:
 
-The Streamlit application contains five tabs.
+1. Zillow home-value history
+2. Redfin housing-market activity
+3. U.S. Census population estimates
+4. U.S. Census residential building permits
 
-### Executive Overview
+The dashboard then:
 
-Provides a summary of the model’s primary findings through:
+1. Reads each file.
+2. Standardizes columns and market names.
+3. Converts source values into consistent numeric formats.
+4. Checks missing and duplicate records.
+5. Finds markets represented across every source.
+6. Allows the user to select all compatible markets or specific cities.
+7. Calculates market features and scores.
+8. Runs the ranking-robustness simulation.
+9. Builds a model-ready decision table.
 
-- Headline market KPI cards
-- Top-3 ranking-probability chart
-- Final market comparison table
-- Model takeaway
-- Market interpretation cards
+At least three compatible markets are required for comparative ranking.
 
-### Market Explorer
+### Step 2: Build an investment strategy
 
-Allows the user to select an individual city and explore:
+Users can begin with one of three presets:
+
+| Strategy | Fundamentals | Momentum | Intended emphasis |
+|---|---:|---:|---|
+| Long-Term Growth | 70% | 30% | Demographic growth and historical appreciation |
+| Balanced | 50% | 50% | Equal attention to long-term and current conditions |
+| Current Resilience | 30% | 70% | Present-day pricing, demand, inventory, and supply |
+
+Users can also adjust the sliders manually. When a preset’s values are changed, the strategy is identified as **Custom**.
+
+A separate ranking-confidence adjustment controls how much ranking robustness influences the final preference-match score.
+
+### Step 3: Review the results
+
+The results workspace contains two primary views.
+
+#### Results Summary
+
+The summary identifies the strongest matches for the selected strategy and presents:
+
+- Best overall match
+- Alternative markets
+- Preference-match score
+- Fundamentals score
+- Momentum score
+- Top-three probability
+- Primary market strength
+- Main factor to monitor
+
+#### Compare & Explore
+
+Users can compare up to three markets and then explore any market included in the analysis.
+
+The market explorer includes:
 
 - Five-year home-value CAGR
 - Population CAGR
 - Home-sales year-over-year change
 - Months of supply
-- Historical home-value trends
-- Annual population growth
+- Historical Zillow Home Value Index
+- Annual population trend
 - Residential construction activity
+- Fundamentals and momentum scores
+- Average rank
+- Top-three probability
 - Market regime
-- Ranking robustness
-- Data-driven market interpretation
+- Robustness classification
+- Factors to monitor
+- Suggested investor next steps
 
-### Fundamentals vs. Momentum
-
-Compares all nine cities on the model’s two primary dimensions through:
-
-- Fundamentals and momentum leaders
-- Quadrant scatterplot
-- Market-profile explanations
-- Construction activity comparison
-- Market-positioning summary table
-- Model interpretation
-
-### Investor Scenarios
-
-Shows how rankings change under three investor strategies:
-
-- Growth-Oriented
-- Balanced
-- Momentum-Oriented
-
-The tab also includes:
-
-- Strategy definitions and weights
-- Top-three markets for the selected strategy
-- Scenario ranking chart
-- Detailed score table
-- Ranking-robustness chart
-- Monte Carlo robustness results
-
-### Methodology
-
-Documents:
-
-- Long-term fundamentals
-- Current market momentum
-- Score normalization
-- Reverse-scoring
-- Investor-scenario weights
-- Ranking-robustness testing
-- Data sources
-- Model limitations
+Users can also download a client-facing market comparison report as a PDF.
 
 ## Data Sources
 
 ### Zillow Research
 
-The Zillow Home Value Index is used to analyze:
+[Zillow Research Housing Data](https://www.zillow.com/research/data/)
+
+The Zillow Home Value Index is used to evaluate:
 
 - Historical home values
 - Five-year appreciation
 - Three-year appreciation
-- Year-over-year price changes
-- Declines from previous market peaks
+- Year-over-year value changes
+- Distance from a previous market peak
 
-Source: **Zillow Research — Zillow Home Value Index**
+The raw-data workflow expects city-level ZHVI history with at least five years of observations.
 
 ### Redfin Data Center
 
-Redfin housing-market data is used to measure:
+[Redfin Data Center Downloads](https://www.redfin.com/news/data-center/downloads/)
+
+Redfin data is used to evaluate:
 
 - Homes sold
 - Pending sales
 - Inventory
+- Active listings
 - New listings
 - Median days on market
 - Months of supply
 - Sale-to-list ratio
 
-The Redfin dataset uses rolling three-month observations. Transaction measures are therefore used for market-momentum comparisons rather than summed into annual totals.
+The raw-data workflow uses monthly city-level observations. Missing Redfin values should remain missing rather than being replaced with zero.
 
-Source: **Redfin Data Center**
+### U.S. Census Bureau Population Estimates
 
-### U.S. Census Bureau Population Estimates Program
+[City and Town Population Estimates](https://www.census.gov/data/tables/time-series/demo/popest/2020s-total-cities-and-towns.html)
 
-Annual city population estimates are used to measure:
+Population data is used to calculate:
 
-- Total population growth
+- Total population change
 - Population CAGR
-- Recent population growth
+- Recent annual population growth
 - Population-growth acceleration or deceleration
 
-Source: **U.S. Census Bureau Population Estimates Program**
+Use one consistent Census vintage. Estimates from different vintages should not be combined because previously reported years may be revised.
 
 ### U.S. Census Bureau Building Permits Survey
 
-Residential building-permit data is used to evaluate:
+[Building Permits Survey](https://www.census.gov/construction/bps/)
+
+[Place-Level Building Permit Files](https://www2.census.gov/econ/bps/Place/)
+
+Building-permit data is used to evaluate:
 
 - Total permitted housing units
 - Permits per 1,000 residents
-- Single-family and multifamily units
-- Single-family share of permitted construction
 - Construction intensity
 - Changes from peak construction activity
 
-Building permits represent housing units authorized, not necessarily completed housing units.
+The dashboard accepts multiple annual place-level permit files. For a current six-year comparison, users can upload one annual file for each year from 2020 through 2025.
 
-Source: **U.S. Census Bureau Building Permits Survey**
+Building permits measure units authorized, not necessarily units completed.
 
-## Analysis Workflow
+## Data Requirements
 
-### 1. Data Cleaning
+For the original-source workflow:
 
-[`notebooks/01_data_cleaning.ipynb`](notebooks/01_data_cleaning.ipynb)
+- Every source must use city- or place-level geography.
+- The same cities should appear across the sources.
+- The files should cover comparable periods.
+- Zillow history must contain at least five years.
+- Redfin data must contain monthly city-level market measurements.
+- Population data must come from one Census vintage.
+- Permit uploads must include one annual file for every selected year.
+- Missing values must not be replaced with zero.
+- Market names and state identifiers must be present or derivable.
 
-The first notebook prepares the source datasets by:
+The dashboard identifies the intersection of markets that can be matched across all four sources. Markets missing from one or more sources are excluded from the final selection.
 
-- Filtering for the nine target cities
-- Restricting the analysis period
-- Reshaping housing data into a city-month panel
-- Standardizing dates and market names
-- Checking missing values and duplicate observations
-- Producing cleaned analytical datasets
-
-### 2. Exploratory Data Analysis
-
-[`notebooks/02_market_eda.ipynb`](notebooks/02_market_eda.ipynb)
-
-The second notebook analyzes and combines:
-
-- Historical home-value trends
-- Five-year and three-year appreciation
-- Current home-value changes
-- Population growth
-- Residential construction intensity
-- Construction relative to population
-- Inventory and months of supply
-- Sales and pending-sales momentum
-- Days on market
-- Sale-to-list ratios
-
-These measures are combined into a city-level master dataset.
-
-### 3. Market Scoring and Robustness
-
-[`notebooks/03_market_momentum_model.ipynb`](notebooks/03_market_momentum_model.ipynb)
-
-The third notebook creates the market scores, investor scenarios, ranking-robustness simulation, and final decision table.
-
-The Streamlit dashboard reads the processed outputs from this workflow and does not recalculate the underlying model.
-
-## Scoring Framework
+## Methodology
 
 ### Long-Term Fundamentals Score
 
@@ -217,139 +261,100 @@ The long-term fundamentals score combines:
 - Five-year home-value CAGR
 - Population-growth acceleration
 
+These measurements represent demographic expansion and longer-term market growth.
+
 ### Current Market Momentum Score
 
 The current market momentum score incorporates:
 
-- ZHVI year-over-year growth
-- Homes-sold year-over-year growth
+- Home-value year-over-year change
+- Homes-sold year-over-year change
 - Sale-to-list ratio
-- Inventory growth
+- Inventory year-over-year change
 - Months of supply
 
-Indicators are normalized to a common 0–100 scale.
+Indicators are normalized to a comparable 0–100 scale.
 
-Variables where lower values indicate stronger market conditions, including inventory growth and months of supply, are reverse-scored before being included in the model.
+Variables where lower values indicate stronger market conditions—such as inventory growth and months of supply—are reverse-scored before inclusion.
 
-## Investor Scenarios
+### Preference-Match Score
 
-Three scenarios show how the results change with different investment priorities.
+The dashboard combines the user’s fundamentals and momentum weights into a base preference score:
 
-| Scenario | Fundamentals Weight | Momentum Weight | Primary Emphasis |
-|---|---:|---:|---|
-| Growth-Oriented | 70% | 30% | Long-term demographic and appreciation potential |
-| Balanced | 50% | 50% | Equal emphasis on long-term and current conditions |
-| Momentum-Oriented | 30% | 70% | Current activity, pricing, and market resilience |
+```text
+Base Preference Score
+= Fundamentals Weight × Fundamentals Score
++ Momentum Weight × Momentum Score
+```
 
-The scenario analysis avoids relying on one universal definition of the “best” housing market.
+Ranking robustness can then influence up to 30% of the final score:
 
-## Monte Carlo Ranking Robustness
+```text
+Preference Match Score
+= (1 − Robustness Share) × Base Preference Score
++ Robustness Share × Top-3 Probability
+```
 
-The model evaluates **10,000 alternative weighting scenarios** to measure how sensitive each market’s position is to changes in investor priorities.
+The score is a comparison tool. It is not a predicted investment return.
 
-For each city, the simulation calculates:
+### Ranking-Robustness Simulation
+
+The model evaluates 10,000 alternative weighting scenarios.
+
+For each market, the simulation calculates:
 
 - Probability of ranking first
-- Probability of ranking in the Top 3
+- Probability of ranking in the top three
 - Average rank
 - Median rank
 - Best observed rank
 - Worst observed rank
 - Composite-score distribution
-- Composite-score dispersion
-- Sensitivity to investor priorities
+- Score dispersion
+- Sensitivity to investor preferences
 
-This distinguishes consistently competitive markets from markets whose rankings depend heavily on a particular weighting assumption.
+This distinguishes markets that remain competitive under many assumptions from those that rank highly only under a narrow strategy.
 
-## Current Market Regimes
+### Market Regimes
 
-The model also classifies each city according to its current supply-and-demand conditions.
+The model classifies current market conditions using pricing, demand, and supply indicators.
 
-The classifications include:
+Possible classifications include:
 
-- **Relatively Stable**
-- **Recovery / Repricing**
-- **Demand Growth / Supply Pressure**
-- **Mixed / Transitional**
+- Relatively Stable
+- Recovery / Repricing
+- Demand Growth / Supply Pressure
+- Mixed / Transitional
 
-These regimes provide context for the momentum scores by combining indicators such as:
+These classifications provide context for the numerical scores and are not forecasts.
 
-- Home-value changes
-- Homes sold
-- Pending sales
-- Inventory growth
-- Months of supply
-- Days on market
-- Sale-to-list ratio
+## Warning Factors
 
-## Selected Results
+The market explorer identifies conditions that may require additional investor attention, including:
 
-| Market | Fundamentals | Fundamentals Rank | Momentum | Momentum Rank | Top-3 Probability | Average Rank | Robustness |
-|---|---:|---:|---:|---:|---:|---:|---|
-| Plano | 42.94 | 6 | 75.61 | 1 | 81.62% | 2.31 | Highly Robust |
-| Melissa | 62.50 | 2 | 54.61 | 5 | 74.69% | 2.84 | Moderately Robust |
-| Richardson | 47.27 | 5 | 64.32 | 2 | 58.72% | 3.44 | Moderately Robust |
-| Celina | 91.02 | 1 | 21.50 | 9 | 42.94% | 4.25 | Moderately Robust |
-| Princeton | 31.07 | 9 | 58.98 | 3 | 19.88% | 6.58 | Weight Sensitive |
-| Frisco | 48.93 | 4 | 47.92 | 6 | 11.93% | 5.66 | Consistently Lower Ranked |
-| McKinney | 41.72 | 8 | 57.07 | 4 | 8.52% | 5.16 | Consistently Lower Ranked |
-| Prosper | 57.26 | 3 | 31.46 | 8 | 1.14% | 7.21 | Consistently Lower Ranked |
-| Anna | 42.75 | 7 | 36.01 | 7 | 0.56% | 7.56 | Consistently Lower Ranked |
+- Elevated months of supply
+- Rising inventory
+- Weak home-sales activity
+- A low sale-to-list ratio
+- Moderate long-term fundamentals
+- High construction intensity
+- Price correction or repricing signals
 
-## Key Findings
+Each warning includes a short recommended next step, such as reviewing neighborhood-level inventory, confirming demand conditions, comparing concessions, or adjusting acquisition assumptions.
 
-### Plano — Current Resilience Leader
-
-Plano has the strongest current market-momentum score and the highest Top-3 ranking probability.
-
-Its long-term fundamentals are more moderate than those of rapidly expanding outer suburbs, but its current housing-market conditions are comparatively resilient.
-
-### Melissa — Balanced Growth Candidate
-
-Melissa combines relatively strong long-term fundamentals with solid current momentum.
-
-Its performance across investor scenarios makes it one of the most balanced markets in the analysis.
-
-### Richardson — Momentum-Oriented Contender
-
-Richardson ranks second in current market momentum and has a 58.72% probability of ranking in the Top 3.
-
-Its relatively stable current market regime makes it a credible alternative for investors prioritizing present-day resilience.
-
-### Celina — Long-Term Growth Leader
-
-Celina ranks first in long-term fundamentals, supported by exceptional population growth and historical home-value appreciation.
-
-However, weaker current momentum and substantial construction activity create a more supply-sensitive near-term investment profile.
-
-### Princeton — Recovery / Repricing Profile
-
-Princeton combines comparatively strong transaction momentum with a weaker long-term fundamentals score and recent price correction.
-
-Its ranking is more sensitive to investor assumptions, but its current profile may be relevant to recovery-oriented or contrarian analysis.
-
-## Main Takeaway
-
-Long-term growth and current housing-market strength are not the same.
-
-Rapidly growing cities can have exceptional demographic fundamentals while simultaneously experiencing high construction activity, rising supply, and weaker current price momentum. More mature markets can have slower population growth but stronger present-day housing conditions.
-
-The model therefore does not identify one universally superior market. Instead, it highlights several investment profiles:
-
-- **Plano:** strongest current momentum and ranking robustness
-- **Melissa:** strongest overall balance
-- **Richardson:** strong momentum-oriented alternative
-- **Celina:** strongest long-term growth thesis
-- **Princeton:** recovery or repricing profile
-
-The preferred market depends on the investor’s time horizon, risk tolerance, and emphasis on current conditions versus future growth.
+Warnings should guide additional due diligence rather than automatically disqualifying a market.
 
 ## Project Structure
 
 ```text
 tx_market_analysis/
+├── .streamlit/
+│   └── config.toml
 ├── dashboard/
-│   └── app.py
+│   ├── app.py
+│   ├── client_app.py
+│   ├── pdf_report.py
+│   └── raw_data_pipeline.py
 ├── data/
 │   ├── raw/
 │   └── processed/
@@ -369,24 +374,30 @@ tx_market_analysis/
 │   ├── 01_data_cleaning.ipynb
 │   ├── 02_market_eda.ipynb
 │   └── 03_market_momentum_model.ipynb
-├── src/
 ├── .gitignore
 ├── README.md
 └── requirements.txt
 ```
 
-Raw source datasets are excluded from Git. Processed analytical outputs are included so the dashboard can run without rerunning the notebooks.
+### Main application files
+
+- `dashboard/client_app.py` — investor-facing Streamlit interface and workflow
+- `dashboard/raw_data_pipeline.py` — source ingestion, cleaning, validation, feature engineering, scoring, and robustness analysis
+- `dashboard/pdf_report.py` — downloadable client comparison report
+- `dashboard/app.py` — earlier dashboard implementation
+- `data/processed/` — prepared North Dallas demonstration data
+- `notebooks/` — original research, exploratory analysis, and model development
+
+Raw source datasets are excluded from Git. Prepared North Dallas outputs are included so the demonstration can run without downloading the original national files.
 
 ## Running the Dashboard Locally
 
 ### 1. Clone the repository
 
 ```bash
-git clone YOUR_REPOSITORY_URL
+git clone https://github.com/ninahhuang/tx_market_analysis.git
 cd tx_market_analysis
 ```
-
-Replace `YOUR_REPOSITORY_URL` with the repository’s GitHub URL.
 
 ### 2. Create a virtual environment
 
@@ -394,7 +405,7 @@ Replace `YOUR_REPOSITORY_URL` with the repository’s GitHub URL.
 python3 -m venv .venv
 ```
 
-### 3. Activate the virtual environment
+### 3. Activate the environment
 
 On macOS or Linux:
 
@@ -402,52 +413,119 @@ On macOS or Linux:
 source .venv/bin/activate
 ```
 
-On Windows:
+On Windows PowerShell:
 
 ```powershell
-.venv\Scripts\activate
+.venv\Scripts\Activate.ps1
 ```
 
-### 4. Install the dependencies
+### 4. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 5. Start the Streamlit application
+### 5. Start the current dashboard
+
+Run Streamlit from the project root so it finds `.streamlit/config.toml`:
 
 ```bash
-streamlit run dashboard/app.py
+streamlit run dashboard/client_app.py
 ```
 
-Streamlit will display a local URL, typically:
+The dashboard will normally open at:
 
 ```text
 http://localhost:8501
 ```
 
-Open that address in a browser if it does not open automatically.
+## Streamlit Configuration
+
+The project uses `.streamlit/config.toml` for its theme and upload settings.
+
+```toml
+[server]
+maxUploadSize = 500
+maxMessageSize = 500
+
+[theme]
+base = "dark"
+primaryColor = "#9BB6FF"
+backgroundColor = "#111638"
+secondaryBackgroundColor = "#171C4D"
+textColor = "#FCFAFF"
+```
+
+The 500 MB setting changes Streamlit’s permitted upload size. It does not increase the memory available to the application.
+
+Restart the Streamlit server after changing configuration values.
+
+## Deployment and Large-File Considerations
+
+The dashboard can be deployed through Streamlit Community Cloud using:
+
+```text
+dashboard/client_app.py
+```
+
+as the main application file.
+
+The complete national Redfin CSV is significantly larger than the other source files. Although the dashboard reads it in chunks, Streamlit first holds the uploaded file in memory. Processing the national file can therefore exceed Community Cloud’s memory allocation.
+
+For a scalable public deployment, the recommended approach is:
+
+1. Process the national Redfin dataset outside the deployed application.
+2. Keep only the model’s required columns.
+3. Divide the data into state-level Parquet files.
+4. Store those files in cloud storage or another server-side location.
+5. Ask the user to select a state before selecting cities.
+6. Load and cache only the selected state’s data.
+
+This removes the need for every visitor to download and upload the complete national Redfin file.
+
+The 500 MB upload setting permits larger uploads but does not guarantee that Community Cloud has enough memory to process them.
 
 ## Technologies
 
 - Python
+- Streamlit
 - pandas
 - NumPy
 - Altair
-- Matplotlib
-- Streamlit
+- ReportLab
+- OpenPyXL
 - Jupyter Notebook
 - Git and GitHub
 
 ## Limitations
 
-- Market-level analysis does not capture neighborhood-level differences.
-- Building permits represent authorized construction, not completed units.
-- Recent housing-market indicators can change quickly.
-- Composite rankings depend on the selected investor priorities.
-- Historical appreciation does not guarantee future returns.
-- The model is intended as a market-screening framework rather than a forecast of investment returns.
+- The model compares cities relative to the markets included in the current analysis.
+- Scores can change when the selected market group changes.
+- Results depend on source availability and consistent market naming.
+- City-level analysis does not capture neighborhood or property-level differences.
+- Recent housing indicators may change quickly or be revised.
+- Building permits represent authorized construction rather than completed homes.
+- Composite rankings depend on the selected investment priorities.
+- Ranking robustness measures model stability, not investment certainty.
+- Historical appreciation does not guarantee future performance.
+- The dashboard does not model property prices, rents, financing, taxes, insurance, renovation costs, or investor-specific cash flows.
+- Large national files may exceed the resources available on hosted Streamlit deployments.
+
+## Intended Use
+
+This dashboard is designed for:
+
+- Initial market screening
+- Comparing investment-market candidates
+- Identifying market strengths and tradeoffs
+- Exploring sensitivity to different investor priorities
+- Preparing client-facing market discussions
+- Directing deeper market and property-level due diligence
+
+It should not be used as the sole basis for an investment decision.
 
 ## Disclaimer
 
-This project is an analytical market-screening tool and is not financial, investment, legal, or real-estate advice. The results should be combined with current market research and property-level due diligence before making an investment decision.
+This project is an analytical market-screening tool and does not provide financial, investment, legal, tax, lending, or real-estate advice.
+
+Results should be combined with current local-market research, neighborhood-level analysis, property-level underwriting, professional guidance, and independent due diligence before making an investment decision.
