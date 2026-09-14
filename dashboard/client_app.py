@@ -3972,7 +3972,53 @@ if (
 # SCREEN 2: RESULTS WORKSPACE
 # ------------------------------------------------------------
 
-analysis_decision = st.session_state.analysis_data.copy()
+def ensure_market_identity(dataframe, default_state=None):
+    """
+    Give original and uploaded datasets the same market identifiers.
+    Existing Market_ID and State values are preserved.
+    """
+    result = dataframe.copy()
+
+    if "State" not in result.columns:
+        result["State"] = default_state or ""
+
+    result["City"] = (
+        result["City"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    result["State"] = (
+        result["State"]
+        .fillna(default_state or "")
+        .astype(str)
+        .str.strip()
+        .str.upper()
+    )
+
+    if "Market_ID" not in result.columns:
+        result["Market_ID"] = result["City"]
+
+        has_state = result["State"].ne("")
+        result.loc[has_state, "Market_ID"] = (
+            result.loc[has_state, "City"]
+            + ", "
+            + result.loc[has_state, "State"]
+        )
+
+    return result
+
+using_uploaded_data = bool(
+    st.session_state.uploaded_time_series
+)
+
+default_state = None if using_uploaded_data else "TX"
+
+analysis_decision = ensure_market_identity(
+    st.session_state.analysis_data,
+    default_state=default_state,
+)
 
 # Select the time-series source used by the results charts.
 if st.session_state.uploaded_time_series:
@@ -3998,6 +4044,22 @@ else:
     active_zhvi = zhvi.copy()
     active_population = population.copy()
     active_permits = permits.copy()
+
+# Standardize market identifiers after the dataframes exist.
+active_zhvi = ensure_market_identity(
+    active_zhvi,
+    default_state=default_state,
+)
+
+active_population = ensure_market_identity(
+    active_population,
+    default_state=default_state,
+)
+
+active_permits = ensure_market_identity(
+    active_permits,
+    default_state=default_state,
+)
 
 if "Market_ID" in active_population.columns:
     active_population["Year"] = pd.to_numeric(
@@ -4276,8 +4338,9 @@ with explore_tab:
         )
         st.stop()
 
-    active_market_features = (
-        st.session_state.analysis_features.copy()
+    active_market_features = ensure_market_identity(
+        st.session_state.analysis_features,
+        default_state=default_state,
     )
 
     comparison_data = (
@@ -4597,7 +4660,7 @@ with explore_tab:
     st.download_button(
         label="Download Client Comparison Report",
         data=pdf_report,
-        file_name="north_dallas_market_comparison.pdf",
+        file_name="market_comparison.pdf",
         mime="application/pdf",
         width="stretch",
     )
@@ -4615,7 +4678,7 @@ with explore_tab:
 
             <div class="section-subtitle">
                 Review historical trends and investor considerations
-                for one of the selected markets.
+                for any market included in this analysis.
             </div>
             """
         ),
