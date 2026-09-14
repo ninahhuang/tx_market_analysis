@@ -1187,11 +1187,25 @@ def read_census_population_upload(uploaded_file):
     """
     uploaded_file.seek(0)
 
-    raw = pd.read_csv(
+    file_name = getattr(
         uploaded_file,
-        header=3,
-        dtype=str,
-    )
+        "name",
+        "",
+    ).lower()
+
+    if file_name.endswith(".xlsx"):
+        raw = pd.read_excel(
+            uploaded_file,
+            header=3,
+            dtype=str,
+            engine="openpyxl",
+        )
+    else:
+        raw = pd.read_csv(
+            uploaded_file,
+            header=3,
+            dtype=str,
+        )
 
     raw = raw.rename(
         columns={raw.columns[0]: "Geographic_Area"}

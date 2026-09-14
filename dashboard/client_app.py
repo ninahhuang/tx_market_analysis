@@ -2939,105 +2939,6 @@ if (
                     "The files must use the column format accepted by this dashboard."
                 )
 
-                with st.expander(
-                    "Step-by-step: How to find the four files",
-                    expanded=False,
-                ):
-                    st.markdown(
-                        """
-                        Use the instructions below to download one file for each
-                        category. Try to select the same cities in every file.
-
-                        ### 1. Download home-value history
-
-                        1. Open the [Zillow Research Data page](https://www.zillow.com/research/data/).
-                        2. Scroll to **Home Values**.
-                        3. Find **Zillow Home Value Index (ZHVI)**.
-                        4. Select **City** for the geography.
-                        5. Select **All Homes** and **Smoothed, Seasonally Adjusted**.
-                        6. Click **Download**.
-                        7. Upload the downloaded CSV under **Home-value history**.
-
-                        The Zillow file normally includes every available city.
-                        You do not need to download each city separately.
-
-                        ---
-
-                        ### 2. Download housing-market activity
-
-                        1. Open the [Redfin Data Center Downloads page](https://www.redfin.com/news/data-center/downloads/).
-                        2. Select **Housing Market Tracker**.
-                        3. Choose the **Monthly** download.
-                        4. Select **Cities** as the region type.
-                        5. Download the data file.
-                        6. Upload it under **Market activity**.
-
-                        Before uploading, confirm that the file contains information
-                        for homes sold, inventory, months of supply, and the
-                        sale-to-list ratio.
-
-                        ---
-
-                        ### 3. Download population estimates
-
-                        1. Open the [Census City and Town Population page](https://www.census.gov/data/tables/time-series/demo/popest/2020s-total-cities-and-towns.html).
-                        2. Scroll to the newest section labeled **Vintage**.
-                        3. Find **City and Town Population**.
-                        4. Select the downloadable CSV for your state or the national
-                        file.
-                        5. Open the file in Google Sheets or Excel and save as CSV
-                        6. Upload it under **Population estimates**.
-
-                        Use the newest available vintage. Do not combine population
-                        files from different vintages.
-
-                        ---
-
-                        ### 4. Download building-permit data
-
-                        1. Open the [Census Building Permits Survey place-level data page](https://www2.census.gov/econ/bps/Place/).
-                        2. Select the region containing the cities you want to analyze:
-
-                        - Northeast
-                        - Midwest
-                        - South
-                        - West
-
-                        3. Choose the date range for your analysis. You must download **one annual file for each year** in that range.
-                        4. For the most recent analysis, download the annual files for **2020 through 2025**—six files in total.
-                        5. In the selected region folder, press **Command + F** on Mac or **Ctrl + F** on Windows and search for each year.
-                        6. Select filenames ending in **`a.txt`**, which indicates complete annual totals. A filename such as `we2025a.txt` means:
-
-                        - `we` identifies the region.
-                        - `2025` identifies the year.
-                        - `a` means annual totals.
-
-                        7. Right click each file and press "Save link as" and download it to your computer.
-                        8. Open each downloaded file in Excel or Numbers as comma-separated data.
-                        9. Filter each file to your chosen state and cities.
-                        10. Add the correct year to each group of records and combine all years into one spreadsheet.
-                        11. Format the combined spreadsheet with these columns:
-
-                            `City`, `State`, `Year`, `Total_Units`
-
-                        12. Save the combined spreadsheet as a CSV and upload it under **Residential building permits**.
-
-                        Use the same date range for every city so the model can compare markets fairly. Avoid filenames ending in `c` or `y`, because they contain monthly or year-to-date data rather than complete annual results.
-
-                        ---
-
-                        ### Final check before uploading
-
-                        Make sure:
-
-                        - All four files cover the same cities.
-                        - All four files use city-level data.
-                        - The home-value file contains at least five years.
-                        - The files are saved as CSV files.
-                        - Missing values have not been replaced with zero.
-                        """
-                    )
-
                 st.info(
                     "Important: all files must describe the same geographic level. "
                     "Do not combine city data with county or metropolitan-area data."
@@ -3065,11 +2966,11 @@ if (
 
                 population_file = st.file_uploader(
                     "Population estimates",
-                    type=["csv"],
+                    type=["csv", "xlsx"],
                     key="raw_population",
                     help=(
-                        "Download annual city and town population estimates "
-                        "from the U.S. Census Bureau."
+                        "Upload annual city and town population estimates "
+                        "from the U.S. Census Bureau as a CSV or Excel file."
                     ),
                 )
 
@@ -3489,241 +3390,590 @@ if (
     
     with requirements_col:
 
-        with st.container(border=True):
+        if data_source == "Upload a market scoring file":
 
-            st.markdown(
-                compact_html(
-                    """
-                    <div style="
-                        padding: 4px 2px;
-                    ">
+            with st.container(border=True):
+
+                st.markdown(
+                    compact_html(
+                        """
                         <div style="
-                            align-items: flex-start;
-                            display: flex;
-                            justify-content: space-between;
-                            margin-bottom: 18px;
+                            padding: 4px 2px;
                         ">
-                            <div>
+                            <div style="
+                                align-items: flex-start;
+                                display: flex;
+                                justify-content: space-between;
+                                margin-bottom: 18px;
+                            ">
+                                <div>
+                                    <div style="
+                                        color: #E9CFDF;
+                                        font-size: 11px;
+                                        font-weight: 800;
+                                        letter-spacing: 0.12em;
+                                        margin-bottom: 7px;
+                                    ">
+                                        MARKET SCORING FILE
+                                    </div>
+
+                                    <div style="
+                                        color: #FFFFFF;
+                                        font-size: 25px;
+                                        font-weight: 800;
+                                        line-height: 1.2;
+                                    ">
+                                        What Your Market Scoring File Should Include
+                                    </div>
+
+                                    <div style="
+                                        color: #D8DAE9;
+                                        font-size: 13px;
+                                        line-height: 1.5;
+                                        margin-top: 8px;
+                                    ">
+                                        Upload one completed, model-ready CSV
+                                        with one unique row per housing market.
+                                    </div>
+                                </div>
+
                                 <div style="
-                                    color: #E9CFDF;
+                                    background: #E9CFDF;
+                                    border-radius: 8px;
+                                    color: #111638;
                                     font-size: 11px;
-                                    font-weight: 800;
-                                    letter-spacing: 0.12em;
-                                    margin-bottom: 7px;
+                                    font-weight: 900;
+                                    letter-spacing: 0.08em;
+                                    padding: 7px 10px;
                                 ">
-                                    UPLOAD OVERVIEW
-                                </div>
-
-                                <div style="
-                                    color: #FFFFFF;
-                                    font-size: 25px;
-                                    font-weight: 800;
-                                    line-height: 1.2;
-                                ">
-                                    What Your Dataset Should Include
-                                </div>
-
-                                <div style="
-                                    color: #D8DAE9;
-                                    font-size: 13px;
-                                    line-height: 1.5;
-                                    margin-top: 8px;
-                                ">
-                                    One unique row per housing market,
-                                    saved as a CSV file.
+                                    CSV
                                 </div>
                             </div>
 
                             <div style="
-                                background: #E9CFDF;
-                                border-radius: 8px;
-                                color: #111638;
-                                font-size: 11px;
-                                font-weight: 900;
-                                letter-spacing: 0.08em;
-                                padding: 7px 10px;
+                                display: grid;
+                                gap: 11px;
+                                grid-template-columns:
+                                    repeat(2, minmax(0, 1fr));
                             ">
-                                CSV
+                                <div style="
+                                    background: rgba(17,22,56,0.46);
+                                    border: 1px solid
+                                        rgba(233,207,223,0.18);
+                                    border-radius: 13px;
+                                    padding: 15px;
+                                ">
+                                    <div style="
+                                        color: #E9CFDF;
+                                        font-size: 10px;
+                                        font-weight: 900;
+                                        letter-spacing: 0.1em;
+                                    ">
+                                        01 · IDENTITY
+                                    </div>
+
+                                    <div style="
+                                        color: #FFFFFF;
+                                        font-size: 15px;
+                                        font-weight: 800;
+                                        margin-top: 8px;
+                                    ">
+                                        Market names
+                                    </div>
+
+                                    <div style="
+                                        color: #D8DAE9;
+                                        font-size: 12px;
+                                        line-height: 1.45;
+                                        margin-top: 5px;
+                                    ">
+                                        A unique city or market name
+                                        for every row.
+                                    </div>
+                                </div>
+
+                                <div style="
+                                    background: rgba(17,22,56,0.46);
+                                    border: 1px solid
+                                        rgba(233,207,223,0.18);
+                                    border-radius: 13px;
+                                    padding: 15px;
+                                ">
+                                    <div style="
+                                        color: #E9CFDF;
+                                        font-size: 10px;
+                                        font-weight: 900;
+                                        letter-spacing: 0.1em;
+                                    ">
+                                        02 · SCORES
+                                    </div>
+
+                                    <div style="
+                                        color: #FFFFFF;
+                                        font-size: 15px;
+                                        font-weight: 800;
+                                        margin-top: 8px;
+                                    ">
+                                        Fundamentals and momentum
+                                    </div>
+
+                                    <div style="
+                                        color: #D8DAE9;
+                                        font-size: 12px;
+                                        line-height: 1.45;
+                                        margin-top: 5px;
+                                    ">
+                                        Comparable market scores ranging
+                                        from 0 to 100.
+                                    </div>
+                                </div>
+
+                                <div style="
+                                    background: rgba(17,22,56,0.46);
+                                    border: 1px solid
+                                        rgba(233,207,223,0.18);
+                                    border-radius: 13px;
+                                    padding: 15px;
+                                ">
+                                    <div style="
+                                        color: #E9CFDF;
+                                        font-size: 10px;
+                                        font-weight: 900;
+                                        letter-spacing: 0.1em;
+                                    ">
+                                        03 · RANKING
+                                    </div>
+
+                                    <div style="
+                                        color: #FFFFFF;
+                                        font-size: 15px;
+                                        font-weight: 800;
+                                        margin-top: 8px;
+                                    ">
+                                        Ranking evidence
+                                    </div>
+
+                                    <div style="
+                                        color: #D8DAE9;
+                                        font-size: 12px;
+                                        line-height: 1.45;
+                                        margin-top: 5px;
+                                    ">
+                                        Fundamentals rank, momentum rank,
+                                        average rank, and top-three probability.
+                                    </div>
+                                </div>
+
+                                <div style="
+                                    background: rgba(17,22,56,0.46);
+                                    border: 1px solid
+                                        rgba(233,207,223,0.18);
+                                    border-radius: 13px;
+                                    padding: 15px;
+                                ">
+                                    <div style="
+                                        color: #E9CFDF;
+                                        font-size: 10px;
+                                        font-weight: 900;
+                                        letter-spacing: 0.1em;
+                                    ">
+                                        04 · CLASSIFICATION
+                                    </div>
+
+                                    <div style="
+                                        color: #FFFFFF;
+                                        font-size: 15px;
+                                        font-weight: 800;
+                                        margin-top: 8px;
+                                    ">
+                                        Market context
+                                    </div>
+
+                                    <div style="
+                                        color: #D8DAE9;
+                                        font-size: 12px;
+                                        line-height: 1.45;
+                                        margin-top: 5px;
+                                    ">
+                                        A robustness profile and current
+                                        market-regime classification.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="
+                                background: rgba(155,182,255,0.11);
+                                border: 1px solid
+                                    rgba(155,182,255,0.3);
+                                border-radius: 11px;
+                                color: #FFFFFF;
+                                display: grid;
+                                font-size: 12px;
+                                gap: 8px;
+                                grid-template-columns:
+                                    repeat(2, minmax(0, 1fr));
+                                margin-top: 12px;
+                                padding: 13px;
+                            ">
+                                <div>✓ No blank required values</div>
+                                <div>✓ One row per market</div>
+                                <div>✓ Unique market names</div>
+                                <div>✓ Scores between 0 and 100</div>
                             </div>
                         </div>
+                        """
+                    ),
+                    unsafe_allow_html=True,
+                )
 
-                        <div style="
-                            display: grid;
-                            gap: 11px;
-                            grid-template-columns:
-                                repeat(2, minmax(0, 1fr));
-                        ">
+        if data_source == "Build from original source files":
+
+            with st.container(border=True):
+
+                st.markdown(
+                    compact_html(
+                        """
+                        <div style="padding: 4px 2px;">
                             <div style="
-                                background: rgba(17,22,56,0.46);
-                                border: 1px solid
-                                    rgba(233,207,223,0.18);
-                                border-radius: 13px;
-                                padding: 15px;
+                                align-items: flex-start;
+                                display: flex;
+                                justify-content: space-between;
+                                margin-bottom: 18px;
                             ">
+                                <div>
+                                    <div style="
+                                        color: #E9CFDF;
+                                        font-size: 11px;
+                                        font-weight: 800;
+                                        letter-spacing: 0.12em;
+                                        margin-bottom: 7px;
+                                    ">
+                                        ORIGINAL SOURCE FILES
+                                    </div>
+
+                                    <div style="
+                                        color: #FFFFFF;
+                                        font-size: 25px;
+                                        font-weight: 800;
+                                        line-height: 1.2;
+                                    ">
+                                        How to Build Your Market Dataset
+                                    </div>
+
+                                    <div style="
+                                        color: #D8DAE9;
+                                        font-size: 13px;
+                                        line-height: 1.5;
+                                        margin-top: 8px;
+                                    ">
+                                        Download four city-level data sources.
+                                        The dashboard will clean, combine, and
+                                        score them for you.
+                                    </div>
+                                </div>
+
                                 <div style="
-                                    color: #E9CFDF;
-                                    font-size: 10px;
+                                    background: #E9CFDF;
+                                    border-radius: 8px;
+                                    color: #111638;
+                                    font-size: 11px;
                                     font-weight: 900;
-                                    letter-spacing: 0.1em;
+                                    letter-spacing: 0.08em;
+                                    padding: 7px 10px;
                                 ">
-                                    01 · IDENTITY
-                                </div>
-
-                                <div style="
-                                    color: #FFFFFF;
-                                    font-size: 15px;
-                                    font-weight: 800;
-                                    margin-top: 8px;
-                                ">
-                                    Market names
-                                </div>
-
-                                <div style="
-                                    color: #D8DAE9;
-                                    font-size: 12px;
-                                    line-height: 1.45;
-                                    margin-top: 5px;
-                                ">
-                                    A unique city or market name
-                                    for every row.
+                                    4 FILES
                                 </div>
                             </div>
 
                             <div style="
-                                background: rgba(17,22,56,0.46);
-                                border: 1px solid
-                                    rgba(233,207,223,0.18);
-                                border-radius: 13px;
-                                padding: 15px;
+                                display: grid;
+                                gap: 11px;
+                                grid-template-columns:
+                                    repeat(2, minmax(0, 1fr));
                             ">
                                 <div style="
-                                    color: #E9CFDF;
-                                    font-size: 10px;
-                                    font-weight: 900;
-                                    letter-spacing: 0.1em;
+                                    background: rgba(17,22,56,0.46);
+                                    border: 1px solid rgba(233,207,223,0.18);
+                                    border-radius: 13px;
+                                    padding: 15px;
                                 ">
-                                    02 · SCORES
+                                    <div style="
+                                        color: #E9CFDF;
+                                        font-size: 10px;
+                                        font-weight: 900;
+                                        letter-spacing: 0.1em;
+                                    ">
+                                        01 · HOME VALUES
+                                    </div>
+
+                                    <div style="
+                                        color: #FFFFFF;
+                                        font-size: 15px;
+                                        font-weight: 800;
+                                        margin-top: 8px;
+                                    ">
+                                        Zillow ZHVI
+                                    </div>
+
+                                    <div style="
+                                        color: #D8DAE9;
+                                        font-size: 12px;
+                                        line-height: 1.45;
+                                        margin-top: 5px;
+                                    ">
+                                        Monthly city-level home-value history.
+                                    </div>
                                 </div>
 
                                 <div style="
-                                    color: #FFFFFF;
-                                    font-size: 15px;
-                                    font-weight: 800;
-                                    margin-top: 8px;
+                                    background: rgba(17,22,56,0.46);
+                                    border: 1px solid rgba(233,207,223,0.18);
+                                    border-radius: 13px;
+                                    padding: 15px;
                                 ">
-                                    Fundamentals and momentum
+                                    <div style="
+                                        color: #E9CFDF;
+                                        font-size: 10px;
+                                        font-weight: 900;
+                                        letter-spacing: 0.1em;
+                                    ">
+                                        02 · MARKET ACTIVITY
+                                    </div>
+
+                                    <div style="
+                                        color: #FFFFFF;
+                                        font-size: 15px;
+                                        font-weight: 800;
+                                        margin-top: 8px;
+                                    ">
+                                        Redfin
+                                    </div>
+
+                                    <div style="
+                                        color: #D8DAE9;
+                                        font-size: 12px;
+                                        line-height: 1.45;
+                                        margin-top: 5px;
+                                    ">
+                                        Sales, inventory, supply, and pricing.
+                                    </div>
                                 </div>
 
                                 <div style="
-                                    color: #D8DAE9;
-                                    font-size: 12px;
-                                    line-height: 1.45;
-                                    margin-top: 5px;
+                                    background: rgba(17,22,56,0.46);
+                                    border: 1px solid rgba(233,207,223,0.18);
+                                    border-radius: 13px;
+                                    padding: 15px;
                                 ">
-                                    Comparable market scores ranging
-                                    from 0 to 100.
+                                    <div style="
+                                        color: #E9CFDF;
+                                        font-size: 10px;
+                                        font-weight: 900;
+                                        letter-spacing: 0.1em;
+                                    ">
+                                        03 · POPULATION
+                                    </div>
+
+                                    <div style="
+                                        color: #FFFFFF;
+                                        font-size: 15px;
+                                        font-weight: 800;
+                                        margin-top: 8px;
+                                    ">
+                                        Census estimates
+                                    </div>
+
+                                    <div style="
+                                        color: #D8DAE9;
+                                        font-size: 12px;
+                                        line-height: 1.45;
+                                        margin-top: 5px;
+                                    ">
+                                        Annual city and town population estimates.
+                                    </div>
+                                </div>
+
+                                <div style="
+                                    background: rgba(17,22,56,0.46);
+                                    border: 1px solid rgba(233,207,223,0.18);
+                                    border-radius: 13px;
+                                    padding: 15px;
+                                ">
+                                    <div style="
+                                        color: #E9CFDF;
+                                        font-size: 10px;
+                                        font-weight: 900;
+                                        letter-spacing: 0.1em;
+                                    ">
+                                        04 · CONSTRUCTION
+                                    </div>
+
+                                    <div style="
+                                        color: #FFFFFF;
+                                        font-size: 15px;
+                                        font-weight: 800;
+                                        margin-top: 8px;
+                                    ">
+                                        Census permits
+                                    </div>
+
+                                    <div style="
+                                        color: #D8DAE9;
+                                        font-size: 12px;
+                                        line-height: 1.45;
+                                        margin-top: 5px;
+                                    ">
+                                        Annual residential building permits.
+                                    </div>
                                 </div>
                             </div>
 
                             <div style="
-                                background: rgba(17,22,56,0.46);
-                                border: 1px solid
-                                    rgba(233,207,223,0.18);
-                                border-radius: 13px;
-                                padding: 15px;
+                                background: rgba(155,182,255,0.11);
+                                border: 1px solid rgba(155,182,255,0.3);
+                                border-radius: 11px;
+                                color: #FFFFFF;
+                                font-size: 12px;
+                                line-height: 1.6;
+                                margin-top: 12px;
+                                padding: 13px;
                             ">
-                                <div style="
-                                    color: #E9CFDF;
-                                    font-size: 10px;
-                                    font-weight: 900;
-                                    letter-spacing: 0.1em;
-                                ">
-                                    03 · RANKING
-                                </div>
-
-                                <div style="
-                                    color: #FFFFFF;
-                                    font-size: 15px;
-                                    font-weight: 800;
-                                    margin-top: 8px;
-                                ">
-                                    Ranking evidence
-                                </div>
-
-                                <div style="
-                                    color: #D8DAE9;
-                                    font-size: 12px;
-                                    line-height: 1.45;
-                                    margin-top: 5px;
-                                ">
-                                    Fundamentals rank, momentum rank,
-                                    average rank, and top-three probability.
-                                </div>
-                            </div>
-
-                            <div style="
-                                background: rgba(17,22,56,0.46);
-                                border: 1px solid
-                                    rgba(233,207,223,0.18);
-                                border-radius: 13px;
-                                padding: 15px;
-                            ">
-                                <div style="
-                                    color: #E9CFDF;
-                                    font-size: 10px;
-                                    font-weight: 900;
-                                    letter-spacing: 0.1em;
-                                ">
-                                    04 · CLASSIFICATION
-                                </div>
-
-                                <div style="
-                                    color: #FFFFFF;
-                                    font-size: 15px;
-                                    font-weight: 800;
-                                    margin-top: 8px;
-                                ">
-                                    Market context
-                                </div>
-
-                                <div style="
-                                    color: #D8DAE9;
-                                    font-size: 12px;
-                                    line-height: 1.45;
-                                    margin-top: 5px;
-                                ">
-                                    A robustness profile and current
-                                    market-regime classification.
-                                </div>
+                                ✓ Use city-level data in every file<br>
+                                ✓ Include the same cities across sources<br>
+                                ✓ Use consistent analysis years<br>
+                                ✓ Do not replace missing values with zero
                             </div>
                         </div>
+                        """
+                    ),
+                    unsafe_allow_html=True,
+                )
 
-                        <div style="
-                            background: rgba(155,182,255,0.11);
-                            border: 1px solid
-                                rgba(155,182,255,0.3);
-                            border-radius: 11px;
-                            color: #FFFFFF;
-                            display: grid;
-                            font-size: 12px;
-                            gap: 8px;
-                            grid-template-columns:
-                                repeat(2, minmax(0, 1fr));
-                            margin-top: 12px;
-                            padding: 13px;
-                        ">
-                            <div>✓ No blank required values</div>
-                            <div>✓ One row per market</div>
-                            <div>✓ Unique market names</div>
-                            <div>✓ Scores between 0 and 100</div>
-                        </div>
-                    </div>
+            with st.expander(
+                "Step-by-step: How to find the four files",
+                expanded=False,
+            ):
+                st.markdown(
                     """
-                ),
-                unsafe_allow_html=True,
-            )
+                    Use the instructions below to find the four required data sources. Select **city-level data** and make sure the same cities are represented across all files.
 
-    st.stop()
+                    ### 1. Download home-value history
+
+                    1. Open the [Zillow Research Data page](https://www.zillow.com/research/data/).
+                    2. Scroll to **Home Values**.
+                    3. Find **Zillow Home Value Index (ZHVI)**.
+                    4. Select **City** as the geography.
+                    5. Select **All Homes**.
+                    6. Select **Smoothed, Seasonally Adjusted**.
+                    7. Click **Download**.
+                    8. Upload the downloaded CSV under **Home-value history**.
+
+                    The Zillow file normally contains every available city. You do not need to download a separate file for each city.
+
+                    For five-year growth calculations, the file should include at least five complete years of home-value history.
+
+                    ---
+
+                    ### 2. Download housing-market activity
+
+                    1. Open the [Redfin Data Center Downloads page](https://www.redfin.com/news/data-center/downloads/).
+                    2. Find **Housing Market Tracker**.
+                    3. Select the **Monthly** dataset.
+                    4. Choose **Cities** as the geographic level.
+                    5. Download the CSV file.
+                    6. If necessary, filter the file to the state or cities you want to analyze.
+                    7. Keep the original Redfin column headings.
+                    8. Upload the CSV under **Market activity**.
+
+                    Before uploading, confirm that the file includes:
+
+                    - Region or city name
+                    - Period beginning or date
+                    - Homes sold
+                    - Inventory or active listings
+                    - Months of supply
+                    - Sale-to-list ratio
+
+                    Redfin uses `NA` when a value is unavailable. Do not replace unavailable values with zero.
+
+                    ---
+
+                    ### 3. Download population estimates
+
+                    1. Open the [Census City and Town Population Estimates page](https://www.census.gov/data/tables/time-series/demo/popest/2020s-total-cities-and-towns.html).
+                    2. Scroll to the newest available section labeled **Vintage**.
+                    3. Find **City and Town Population Estimates**.
+                    4. Select the downloadable file for your state. Use the national file only if you plan to analyze cities across multiple states.
+                    5. Click on the State that contains the cities you want to analyze to download it as an .xlsx file.
+                    6. Upload the `.xlsx` file under **Population estimates**.
+                    7. Confirm that it includes city names, state identifiers, and annual population estimates.
+                    8. Save or export it as a CSV.
+                    9. Upload the CSV under **Population estimates**.
+
+                    Use the newest available vintage. Do not combine population files from different vintages because the Census Bureau may revise earlier estimates when it releases a new vintage.
+
+                    Only one population file is needed if it contains the complete annual range for the selected cities.
+
+                    ---
+
+                    ### 4. Download residential building-permit data
+
+                    1. Open the [Census Building Permits Survey place-level data directory](https://www2.census.gov/econ/bps/Place/).
+                    2. Select the folder for the Census region containing your cities:
+
+                    - **Northeast**
+                    - **Midwest**
+                    - **South**
+                    - **West**
+
+                    3. Choose the date range you want to analyze.
+                    4. Download **one annual file for every year** in that range.
+                    5. For the most recent comparable analysis, use **2020 through 2025**, which requires six annual files.
+                    6. In the region folder, press **Command + F** on Mac or **Ctrl + F** on Windows and search for each year.
+                    7. Select filenames ending in **`a.txt`**. The letter `a` identifies a complete annual file.
+
+                    For example, `we2025a.txt` means:
+
+                    - `we` identifies the West Census region.
+                    - `2025` identifies the year.
+                    - `a` identifies complete annual totals.
+
+                    8. Right-click each required file and select **Save Link As** or **Download Linked File**.
+                    9. Keep each annual file separate.
+                    10. Upload all the annual `.txt` files together under **Residential building permits**.
+
+                    Do not select filenames ending in `c`, `y`, or `r`:
+
+                    - `c` represents a current-month file.
+                    - `y` represents year-to-date results.
+                    - `r` represents monthly cumulative records.
+                    - `a` represents final annual totals used by this dashboard.
+
+                    You do not need to manually combine the annual files. The dashboard will read, standardize, and combine them after upload.
+
+                    For more information about the file structure, see the [Census place-level Building Permits documentation](https://www2.census.gov/econ/bps/Documentation/placeasc.pdf).
+
+                    ---
+
+                    ### Final check before uploading
+
+                    Make sure that:
+
+                    - Every source uses **city-level** or **place-level** geography.
+                    - The files represent the same state, region, or collection of cities.
+                    - The home-value file contains at least five years of history.
+                    - The Redfin file uses monthly city-level records.
+                    - The population file comes from one consistent Census vintage.
+                    - One annual permit file is included for every selected year.
+                    - Missing values have not been replaced with zero.
+                    - Zillow, Redfin, and population data are uploaded as CSV files.
+                    - Building-permit data may be uploaded as multiple CSV or TXT files.
+
+                    The dashboard will identify the cities appearing across all four sources. You can then choose **All markets** or select individual cities for the analysis.
+                    """
+                )
+
+        st.stop()
 
 
 # ------------------------------------------------------------
