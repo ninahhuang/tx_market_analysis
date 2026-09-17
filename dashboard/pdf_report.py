@@ -203,7 +203,7 @@ def add_page_number(canvas, document):
     canvas.drawRightString(
         landscape(letter)[0] - 0.45 * inch,
         0.3 * inch,
-        f"North Dallas Market Analysis  |  Page {page_number}",
+        f"Market Analysis  |  Page {page_number}",
     )
 
     canvas.restoreState()
@@ -286,8 +286,8 @@ def build_market_comparison_pdf(
         leftMargin=0.5 * inch,
         topMargin=0.5 * inch,
         bottomMargin=0.5 * inch,
-        title="North Dallas Market Comparison",
-        author="North Dallas Market Analysis",
+        title="Market Comparison",
+        author="Market Analysis",
     )
 
     styles = getSampleStyleSheet()
@@ -394,7 +394,7 @@ def build_market_comparison_pdf(
         [
             [
                 Paragraph(
-                    "North Dallas Market Comparison",
+                    "Market Comparison",
                     title_style,
                 ),
                 Paragraph(
