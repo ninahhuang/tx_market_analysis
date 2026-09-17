@@ -1,0 +1,4 @@
+City,Long_Term_Fundamentals_Score,Fundamentals_Rank,Current_Market_Momentum_Score,Momentum_Rank,Pct_Top_3,Average_Rank,Robustness_Profile,Current_Market_Regime
+Duplicate Sample City,82.50,1,68.20,2,91.40,1.35,Highly Robust,Strong / Expanding
+Duplicate Sample City,66.75,2,125.00,1,78.60,1.85,Highly Robust,Strong / Expanding
+Nonnumeric Sample City,48.30,third,61.25,3,-12.00,2.80,Moderately Robust,Momentum-Led / Developing Fundamentals
