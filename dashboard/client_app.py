@@ -3291,8 +3291,13 @@ if (
                             "Cities to analyze",
                             options=available_markets,
                             default=previous_selection[:10],
+                            max_selections=10,
                             placeholder="Search for a city...",
                             key="uploaded_market_multiselect",
+                        )
+
+                        st.caption(
+                            f"{len(selected_markets)} of 10 maximum markets selected"
                         )
 
                         st.caption(
@@ -4311,6 +4316,15 @@ active_permits = ensure_market_identity(
     default_state=default_state,
 )
 
+# Standardize the permit-unit column across included and uploaded data.
+if (
+    "Total_Units" not in active_permits.columns
+    and "Total_Units_Permitted" in active_permits.columns
+):
+    active_permits["Total_Units"] = (
+        active_permits["Total_Units_Permitted"]
+    )
+
 if "Market_ID" in active_population.columns:
     active_population["Year"] = pd.to_numeric(
         active_population["Year"],
@@ -4347,17 +4361,25 @@ if (
         errors="coerce",
     )
 
-    permit_population = active_population[
-        ["Market_ID", "Year", "Population"]
-    ].drop_duplicates(
-        subset=["Market_ID", "Year"]
-    )
+    # Uploaded permit files do not contain population, but the included
+    # North Dallas permit file already does.
+    if "Population" not in active_permits.columns:
+        permit_population = active_population[
+            ["Market_ID", "Year", "Population"]
+        ].drop_duplicates(
+            subset=["Market_ID", "Year"]
+        )
 
-    active_permits = active_permits.merge(
-        permit_population,
-        on=["Market_ID", "Year"],
-        how="left",
-        validate="many_to_one",
+        active_permits = active_permits.merge(
+            permit_population,
+            on=["Market_ID", "Year"],
+            how="left",
+            validate="many_to_one",
+        )
+
+    active_permits["Population"] = pd.to_numeric(
+        active_permits["Population"],
+        errors="coerce",
     )
 
     active_permits["Permits_Per_1000_Residents"] = (
@@ -4923,12 +4945,12 @@ with explore_tab:
             <div class="explore-divider"></div>
 
             <h2 class="section-heading">
-                Explore One Market
+                Explore Market Trends
             </h2>
 
             <div class="section-subtitle">
-                Review historical trends and investor considerations
-                for any market included in this analysis.
+                Compare historical home values, population, and residential
+                construction across up to 10 analyzed markets.
             </div>
             """
         ),
@@ -4950,11 +4972,103 @@ with explore_tab:
         )
         st.stop()
 
-    selected_market_id = st.selectbox(
-        "Market to explore",
-        options=available_deep_dive_markets,
-        key="market_explorer_market_id",
+    # --------------------------------------------------------
+    # CHART VIEW MODE
+    # --------------------------------------------------------
+
+    view_mode_options = [
+        "One market",
+    ]
+
+    # Showing every market is only appropriate when the current
+    # analysis contains 10 or fewer markets.
+    if len(available_deep_dive_markets) <= 10:
+        view_mode_options.append("All analyzed markets")
+
+    view_mode_options.append("Select specific markets")
+
+    chart_view_mode = st.radio(
+        "Chart view",
+        options=view_mode_options,
+        horizontal=True,
+        key="market_chart_view_mode",
+        help=(
+            "Choose whether all three charts display one market, "
+            "every analyzed market, or a custom group."
+        ),
     )
+
+    if len(available_deep_dive_markets) > 10:
+        st.caption(
+            "This analysis contains more than 10 markets. "
+            "Use Select specific markets to compare up to 10."
+        )
+
+    # --------------------------------------------------------
+    # DETERMINE WHICH MARKETS APPEAR IN ALL THREE CHARTS
+    # --------------------------------------------------------
+
+    if chart_view_mode == "One market":
+        selected_market_id = st.selectbox(
+            "Market to explore",
+            options=available_deep_dive_markets,
+            key="single_market_chart_id",
+        )
+
+        comparison_market_ids = [
+            selected_market_id
+        ]
+
+    elif chart_view_mode == "All analyzed markets":
+        comparison_market_ids = (
+            available_deep_dive_markets.copy()
+        )
+
+        selected_market_id = st.selectbox(
+            "Primary market for details",
+            options=comparison_market_ids,
+            key="market_explorer_market_id",
+            help=(
+                "All analyzed markets appear in the charts. "
+                "The KPI cards and investor considerations use "
+                "the primary market."
+            ),
+        )
+
+    else:
+        default_comparison_markets = (
+            available_deep_dive_markets[:3]
+        )
+
+        comparison_market_ids = st.multiselect(
+            "Markets to compare",
+            options=available_deep_dive_markets,
+            default=default_comparison_markets,
+            max_selections=10,
+            placeholder="Select up to 10 markets...",
+            key="market_comparison_ids",
+        )
+
+        if not comparison_market_ids:
+            st.warning(
+                "Select at least one market to display the charts."
+            )
+            st.stop()
+
+        st.caption(
+            f"{len(comparison_market_ids)} of 10 maximum markets selected"
+        )
+
+        selected_market_id = st.selectbox(
+            "Primary market for details",
+            options=comparison_market_ids,
+            key="market_explorer_market_id",
+            help=(
+                "All selected markets appear in the charts. "
+                "The KPI cards and investor considerations use "
+                "the primary market."
+            ),
+        )
 
     selected_result_row = match_results.loc[
         match_results["Market_ID"] == selected_market_id
@@ -4962,6 +5076,51 @@ with explore_tab:
 
     selected_city = selected_result_row["City"]
     selected_state = selected_result_row["State"]
+
+    comparison_legend = None
+
+    if len(comparison_market_ids) > 1:
+        comparison_legend = alt.Legend(
+            orient="bottom",
+            columns=5,
+            labelColor="#FFFFFF",
+            titleColor="#FFFFFF",
+            symbolStrokeWidth=3,
+        )
+
+    light_market_colors = [
+        "#9EC5FE",  # light blue
+        "#FFD166",  # gold
+        "#6ED8C7",  # mint
+        "#FF8A80",  # coral
+        "#C4A7FF",  # lavender
+        "#FFB36B",  # peach
+        "#72D0F4",  # cyan
+        "#F49AC2",  # pink
+        "#8FD175",  # green
+        "#E6C86E",  # warm yellow
+    ]
+
+    comparison_color = alt.Color(
+        "Market_ID:N",
+        title="Market",
+        scale=alt.Scale(
+            domain=comparison_market_ids,
+            range=light_market_colors[:len(comparison_market_ids)],
+        ),
+        legend=comparison_legend,
+    )
+
+    if chart_view_mode == "One market":
+        chart_scope_description = selected_market_id
+    elif chart_view_mode == "All analyzed markets":
+        chart_scope_description = (
+            f"all {len(comparison_market_ids)} analyzed markets"
+        )
+    else:
+        chart_scope_description = (
+            f"{len(comparison_market_ids)} selected markets"
+        )
 
     # --------------------------------------------------------
     # CITY SELECTOR
@@ -4987,6 +5146,10 @@ with explore_tab:
     # --------------------------------------------------------
     # KPI CARDS
     # --------------------------------------------------------
+
+    st.markdown(
+        f"### Market details: {selected_market_id}"
+    )
 
     explorer_kpis = [
         kpi_card(
@@ -5026,26 +5189,30 @@ with explore_tab:
     # HOME VALUE TREND
     # --------------------------------------------------------
 
-    if "Market_ID" in active_zhvi.columns:
-        city_zhvi = active_zhvi.loc[
-            active_zhvi["Market_ID"] == selected_market_id
-        ].copy()
-    else:
-        city_zhvi = active_zhvi.loc[
-            active_zhvi["City"] == selected_city
-        ].copy()
+    comparison_zhvi = active_zhvi.loc[
+        active_zhvi["Market_ID"].isin(comparison_market_ids)
+    ].copy()
 
-    city_zhvi["Date"] = pd.to_datetime(
-        city_zhvi["Date"]
+    comparison_zhvi["Date"] = pd.to_datetime(
+        comparison_zhvi["Date"],
+        errors="coerce",
     )
 
-    city_zhvi = city_zhvi.sort_values("Date")
+    comparison_zhvi["ZHVI"] = pd.to_numeric(
+        comparison_zhvi["ZHVI"],
+        errors="coerce",
+    )
 
-    home_value_line = (
-        alt.Chart(city_zhvi)
+    comparison_zhvi = (
+        comparison_zhvi
+        .dropna(subset=["Date", "ZHVI", "Market_ID"])
+        .sort_values(["Market_ID", "Date"])
+    )
+
+    home_value_chart = (
+        alt.Chart(comparison_zhvi)
         .mark_line(
-            color="#9BB6FF",
-            strokeWidth=3,
+            strokeWidth=3.25,
         )
         .encode(
             x=alt.X(
@@ -5069,7 +5236,12 @@ with explore_tab:
                     gridColor="rgba(255, 255, 255, 0.20)",
                 ),
             ),
+            color=comparison_color,
             tooltip=[
+                alt.Tooltip(
+                    "Market_ID:N",
+                    title="Market",
+                ),
                 alt.Tooltip(
                     "Date:T",
                     title="Date",
@@ -5082,60 +5254,31 @@ with explore_tab:
                 ),
             ],
         )
-    )
-
-    home_value_points = (
-        alt.Chart(city_zhvi)
-        .mark_circle(
-            color="#9BB6FF",
-            size=30,
-            opacity=0,
+        .properties(
+            height=380,
+            background="transparent",
         )
-        .encode(
-            x="Date:T",
-            y=alt.Y(
-                "ZHVI:Q",
-                scale=alt.Scale(zero=False),
-            ),
-            tooltip=[
-                alt.Tooltip(
-                    "Date:T",
-                    title="Date",
-                    format="%B %Y",
-                ),
-                alt.Tooltip(
-                    "ZHVI:Q",
-                    title="Typical home value",
-                    format="$,.0f",
-                ),
-            ],
+        .configure_view(
+            stroke=None
         )
-    )
-
-    home_value_chart = (
-        home_value_line + home_value_points
-    ).properties(
-        height=340,
-        background="transparent",
-    ).configure_view(
-        stroke=None
-    ).configure_axis(
-        labelColor="#FFFFFF",
-        titleColor="#FFFFFF",
-        gridColor="rgba(255, 255, 255, 0.20)",
-        domainColor="rgba(255, 255, 255, 0.45)",
-        tickColor="rgba(255, 255, 255, 0.45)",
-        labelFontSize=11,
-        titleFontSize=12,
+        .configure_axis(
+            labelColor="#FFFFFF",
+            titleColor="#FFFFFF",
+            gridColor="rgba(255, 255, 255, 0.20)",
+            domainColor="rgba(255, 255, 255, 0.45)",
+            tickColor="rgba(255, 255, 255, 0.45)",
+            labelFontSize=11,
+            titleFontSize=12,
+        )
     )
 
     with st.container(border=True):
 
         st.markdown(
             f"""
-            ### Home Value Trend
+            ### Home Value Trends
 
-            Historical Zillow Home Value Index for {selected_city}, {selected_state}
+            Historical Zillow Home Value Index for {chart_scope_description}
             """
         )
 
@@ -5148,33 +5291,34 @@ with explore_tab:
     # POPULATION AND CONSTRUCTION CHARTS
     # --------------------------------------------------------
 
-    chart_col1, chart_col2 = st.columns(
-        2,
-        gap="large",
+    # Population data for the selected city.
+    comparison_population = active_population.loc[
+        active_population["Market_ID"].isin(comparison_market_ids)
+    ].copy()
+
+    comparison_population["Year"] = pd.to_numeric(
+        comparison_population["Year"],
+        errors="coerce",
     )
 
-    # Population data for the selected city.
-    if "Market_ID" in active_population.columns:
-        city_population = active_population.loc[
-            active_population["Market_ID"]
-            == selected_market_id
-        ].copy()
-    else:
-        city_population = active_population.loc[
-            active_population["City"] == selected_city
-        ].copy()
+    comparison_population["Population"] = pd.to_numeric(
+        comparison_population["Population"],
+        errors="coerce",
+    )
 
-    city_population = city_population.sort_values("Year")
+    comparison_population = (
+        comparison_population
+        .dropna(subset=["Year", "Population", "Market_ID"])
+        .sort_values(["Market_ID", "Year"])
+    )
 
     population_chart = (
-        alt.Chart(city_population)
+        alt.Chart(comparison_population)
         .mark_line(
-            color="#9BB6FF",
-            strokeWidth=3,
+            strokeWidth=3.25,
             point=alt.OverlayMarkDef(
                 filled=True,
-                fill="#9BB6FF",
-                size=65,
+                size=45,
             ),
         )
         .encode(
@@ -5198,7 +5342,12 @@ with explore_tab:
                     gridColor="rgba(255, 255, 255, 0.20)",
                 ),
             ),
+            color=comparison_color,
             tooltip=[
+                alt.Tooltip(
+                    "Market_ID:N",
+                    title="Market",
+                ),
                 alt.Tooltip(
                     "Year:O",
                     title="Year",
@@ -5216,7 +5365,7 @@ with explore_tab:
             ],
         )
         .properties(
-            height=280,
+            height=340,
             background="transparent",
         )
         .configure_view(
@@ -5233,92 +5382,121 @@ with explore_tab:
         )
     )
 
-    with chart_col1:
+    with st.container(border=True):
 
-        with st.container(border=True):
+        st.markdown(
+            f"""
+            ### Population Growth
 
-            st.markdown(
-                """
-                ### Population Growth
+            Annual Census population estimates for {chart_scope_description}
+            """
+        )
 
-                Annual Census population estimates
-                """
-            )
-
-            st.altair_chart(
-                population_chart,
-                width="stretch",
-            )
+        st.altair_chart(
+            population_chart,
+            width="stretch",
+        )
 
     # Construction data for the selected city.
-    if "Market_ID" in active_permits.columns:
-        city_permits = active_permits.loc[
-            active_permits["Market_ID"]
-            == selected_market_id
-        ].copy()
-    else:
-        city_permits = active_permits.loc[
-            active_permits["City"] == selected_city
-        ].copy()
+    comparison_permits = active_permits.loc[
+        active_permits["Market_ID"].isin(comparison_market_ids)
+    ].copy()
 
-    city_permits = city_permits.sort_values("Year")
+    comparison_permits["Year"] = pd.to_numeric(
+        comparison_permits["Year"],
+        errors="coerce",
+    )
 
-    permits_chart = (
-        alt.Chart(city_permits)
-        .mark_bar(
-            color="#E9CFDF",
+    comparison_permits["Permits_Per_1000_Residents"] = pd.to_numeric(
+        comparison_permits["Permits_Per_1000_Residents"],
+        errors="coerce",
+    )
+
+    comparison_permits["Total_Units"] = pd.to_numeric(
+        comparison_permits["Total_Units"],
+        errors="coerce",
+    )
+
+    comparison_permits = (
+        comparison_permits
+        .dropna(
+            subset=[
+                "Year",
+                "Permits_Per_1000_Residents",
+                "Market_ID",
+            ]
+        )
+        .sort_values(["Year", "Market_ID"])
+    )
+
+    permits_base = alt.Chart(
+        comparison_permits
+    ).encode(
+        x=alt.X(
+            "Year:O",
+            title=None,
+            axis=alt.Axis(
+                labelAngle=0,
+                labelColor="#FFFFFF",
+                grid=False,
+            ),
+        ),
+        y=alt.Y(
+            "Permits_Per_1000_Residents:Q",
+            title="Permitted units per 1,000 residents",
+            axis=alt.Axis(
+                format=".1f",
+                labelColor="#FFFFFF",
+                titleColor="#FFFFFF",
+                gridColor="rgba(255, 255, 255, 0.20)",
+            ),
+        ),
+        color=comparison_color,
+        tooltip=[
+            alt.Tooltip(
+                "Market_ID:N",
+                title="Market",
+            ),
+            alt.Tooltip(
+                "Year:O",
+                title="Year",
+            ),
+            alt.Tooltip(
+                "Permits_Per_1000_Residents:Q",
+                title="Permits per 1,000",
+                format=".2f",
+            ),
+            alt.Tooltip(
+                "Total_Units:Q",
+                title="Total permitted units",
+                format=",.0f",
+            ),
+        ],
+    )
+
+    if len(comparison_market_ids) == 1:
+        permits_chart = permits_base.mark_bar(
             cornerRadiusTopLeft=4,
             cornerRadiusTopRight=4,
+            opacity=0.95,
+            stroke="#FFFFFF",
+            strokeWidth=0.6,
         )
-        .encode(
-            x=alt.X(
-                "Year:O",
-                title=None,
-                axis=alt.Axis(
-                    labelAngle=0,
-                    labelColor="#FFFFFF",
-                    grid=False,
-                ),
+    else:
+        permits_chart = permits_base.mark_line(
+            strokeWidth=3.25,
+            point=alt.OverlayMarkDef(
+                filled=True,
+                size=70,
+                stroke="#FFFFFF",
+                strokeWidth=0.8,
             ),
-            y=alt.Y(
-                "Permits_Per_1000_Residents:Q",
-                title="Permitted units per 1,000 residents",
-                axis=alt.Axis(
-                    format=",.0f",
-                    labelColor="#FFFFFF",
-                    titleColor="#FFFFFF",
-                    gridColor="rgba(255, 255, 255, 0.20)",
-                ),
-            ),
-            tooltip=[
-                alt.Tooltip(
-                    "Year:O",
-                    title="Year",
-                ),
-                alt.Tooltip(
-                    "Permits_Per_1000_Residents:Q",
-                    title="Permits per 1,000",
-                    format=".2f",
-                ),
-                alt.Tooltip(
-                    "Total_Units_Permitted:Q",
-                    title="Total units",
-                    format=",.0f",
-                ),
-                alt.Tooltip(
-                    "Single_Family_Units:Q",
-                    title="Single-family units",
-                    format=",.0f",
-                ),
-                alt.Tooltip(
-                    "Multifamily_Units:Q",
-                    title="Multifamily units",
-                    format=",.0f",
-                ),
-            ],
         )
+
+    permits_chart = (
+        permits_chart
         .properties(
-            height=280,
+            height=340,
             background="transparent",
         )
         .configure_view(
@@ -5335,22 +5513,21 @@ with explore_tab:
         )
     )
 
-    with chart_col2:
+    with st.container(border=True):
 
-        with st.container(border=True):
+        st.markdown(
+            f"""
+            ### Residential Construction
 
-            st.markdown(
-                """
-                ### Residential Construction
+            Annual permitted housing units per 1,000 residents for
+            {chart_scope_description}
+            """
+        )
 
-                Annual housing units permitted per 1,000 residents
-                """
-            )
-
-            st.altair_chart(
-                permits_chart,
-                width="stretch",
-            )
+        st.altair_chart(
+            permits_chart,
+            width="stretch",
+        )
 
     # --------------------------------------------------------
     # MARKET INTERPRETATION
