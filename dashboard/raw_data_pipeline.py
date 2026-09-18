@@ -193,29 +193,6 @@ def read_bps_permit_upload(uploaded_file):
         "Total_Units": raw.iloc[:, total_units_position],
     })
 
-    result = pd.DataFrame({
-        "Year": (
-            raw.iloc[:, 0]
-            .astype(str)
-            .str.replace('"', "", regex=False)
-            .str.strip()
-        ),
-        "State_FIPS": (
-            raw.iloc[:, 1]
-            .astype(str)
-            .str.strip()
-            .str.zfill(2)
-        ),
-        "City": (
-            raw.iloc[:, 17]
-            .astype(str)
-            .str.replace('"', "", regex=False)
-            .str.strip()
-        ),
-        # Column 19 is total permitted housing units.
-        "Total_Units": raw.iloc[:, 19],
-    })
-
     result["State"] = result["State_FIPS"].map(
         STATE_FIPS_TO_ABBR
     )
