@@ -5,3 +5,9 @@ altair==6.2.2
 reportlab>=4.2,<5
 openpyxl==3.1.5
 pyarrow==24.0.0
+google-cloud-bigquery==3.44.0
+db-dtypes>=1.4,<2
+requests>=2.32,<3
+certifi
+pandas-gbq>=0.26.1
+google-cloud-bigquery-storage>=2.32,<3

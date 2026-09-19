@@ -7,6 +7,11 @@ import time
 
 from pdf_report import build_market_comparison_pdf
 
+from bigquery_data import (
+    load_analysis_sources,
+    load_markets,
+)
+
 from raw_data_pipeline import (
     MARKET_ACTIVITY_COLUMNS,
     build_model_outputs,
@@ -2687,6 +2692,8 @@ def reset_dataset_validation():
     st.session_state.available_uploaded_markets = []
     st.session_state.selected_uploaded_markets = []
     st.session_state.market_selection_mode = "All markets"
+    st.session_state.uploaded_time_series = {}
+    st.session_state.analysis_features = market.copy()
 
 def mark_strategy_custom():
     """Mark the strategy as custom after a slider is adjusted."""
@@ -2715,9 +2722,9 @@ if (
                 </h1>
 
                 <div class="setup-subtitle">
-                    Use the included North Dallas dataset or upload
-                    a compatible market-scoring file. The dashboard
-                    will verify the file before it can be analyzed.
+                    Use the cloud market database, included North Dallas
+                    dataset, or your own compatible files. The dashboard
+                    will verify the selected data before analysis.
                 </div>
             </div>
             """
@@ -2740,6 +2747,7 @@ if (
                 "Dataset source",
                 [
                     "Use included North Dallas data",
+                    "Use cloud market database",
                     "Upload a market scoring file",
                     "Build from original source files",
                 ],
@@ -2931,8 +2939,276 @@ if (
                         st.session_state.validation_errors = (
                             validation_errors
                         )
-            else:
-                st.markdown("### Upload original market data")
+
+            # insert here
+            elif data_source == "Use cloud market database":
+
+                st.markdown("### Select cloud markets")
+
+                st.caption(
+                    "Choose between 3 and 50 markets. The dashboard "
+                    "will retrieve their histories from BigQuery and "
+                    "run the existing scoring model."
+                )
+
+                try:
+                    cloud_markets = load_markets().copy()
+
+                    cloud_markets["label"] = (
+                        cloud_markets["city"]
+                        + ", "
+                        + cloud_markets["state_code"]
+                    )
+
+                    cloud_markets = (
+                        cloud_markets
+                        .sort_values(
+                            ["state_code", "city"]
+                        )
+                        .drop_duplicates(
+                            subset=["market_id"]
+                        )
+                        .reset_index(drop=True)
+                    )
+
+                    cloud_label_to_id = dict(
+                        zip(
+                            cloud_markets["label"],
+                            cloud_markets["market_id"],
+                        )
+                    )
+
+                    selected_cloud_labels = st.multiselect(
+                        "Markets to analyze",
+                        options=cloud_markets["label"].tolist(),
+                        max_selections=50,
+                        placeholder="Search for a city or state...",
+                        key="cloud_market_multiselect",
+                    )
+
+                    selected_cloud_ids = [
+                        cloud_label_to_id[label]
+                        for label in selected_cloud_labels
+                    ]
+
+                    st.caption(
+                        f"{len(selected_cloud_ids)} of 50 maximum "
+                        "markets selected"
+                    )
+
+                    cloud_selection_valid = (
+                        3 <= len(selected_cloud_ids) <= 50
+                    )
+
+                    if len(selected_cloud_ids) < 3:
+                        st.info(
+                            "Select at least three markets so the model "
+                            "can calculate comparative rankings."
+                        )
+
+                    if st.button(
+                        "Load & Validate Cloud Markets",
+                        type="primary",
+                        width="stretch",
+                        disabled=not cloud_selection_valid,
+                        key="load_cloud_markets",
+                    ):
+                        try:
+                            with st.status(
+                                "Loading cloud market data...",
+                                expanded=True,
+                            ) as status:
+
+                                st.write(
+                                    "Querying BigQuery source tables..."
+                                )
+
+                                cloud_sources = (
+                                    load_analysis_sources(
+                                        selected_cloud_ids
+                                    )
+                                )
+
+                                st.write(
+                                    "Standardizing source records..."
+                                )
+
+                                processed_home_values = (
+                                    process_home_values(
+                                        cloud_sources["home_values"]
+                                    )
+                                )
+
+                                processed_activity = (
+                                    process_market_activity(
+                                        cloud_sources[
+                                            "market_activity"
+                                        ]
+                                    )
+                                )
+
+                                processed_population = (
+                                    process_population(
+                                        cloud_sources["population"]
+                                    )
+                                )
+
+                                processed_permits = (
+                                    process_permits(
+                                        cloud_sources["permits"]
+                                    )
+                                )
+
+                                st.write(
+                                    "Checking completeness and coverage..."
+                                )
+
+                                checks = validate_sources(
+                                    processed_home_values,
+                                    processed_activity,
+                                    processed_population,
+                                    processed_permits,
+                                )
+
+                                (
+                                    coverage_check,
+                                    common_markets,
+                                    excluded_markets,
+                                ) = check_market_coverage(
+                                    processed_home_values,
+                                    processed_activity,
+                                    processed_population,
+                                    processed_permits,
+                                )
+
+                                checks.append(coverage_check)
+
+                                failed_checks = [
+                                    check
+                                    for check in checks
+                                    if not check["passed"]
+                                ]
+
+                                for check in checks:
+                                    icon = (
+                                        "✓"
+                                        if check["passed"]
+                                        else "✕"
+                                    )
+
+                                    st.write(
+                                        f"{icon} "
+                                        f"**{check['name']}** — "
+                                        f"{check['detail']}"
+                                    )
+
+                                if failed_checks:
+                                    st.session_state.dataset_approved = (
+                                        False
+                                    )
+
+                                    st.session_state.validation_errors = [
+                                        (
+                                            f"{check['name']}: "
+                                            f"{check['detail']}"
+                                        )
+                                        for check in failed_checks
+                                    ]
+
+                                    status.update(
+                                        label=(
+                                            "Cloud dataset needs attention"
+                                        ),
+                                        state="error",
+                                        expanded=True,
+                                    )
+
+                                else:
+                                    st.write(
+                                        "Running scoring and robustness "
+                                        "analysis..."
+                                    )
+
+                                    outputs = build_model_outputs(
+                                        processed_home_values,
+                                        processed_activity,
+                                        processed_population,
+                                        processed_permits,
+                                    )
+
+                                    st.session_state.pending_analysis_data = (
+                                        outputs["decision"].copy()
+                                    )
+
+                                    st.session_state.analysis_features = (
+                                        outputs["features"].copy()
+                                    )
+
+                                    st.session_state.uploaded_time_series = {
+                                        "home_values": (
+                                            outputs[
+                                                "home_values"
+                                            ].copy()
+                                        ),
+                                        "market_activity": (
+                                            outputs[
+                                                "market_activity"
+                                            ].copy()
+                                        ),
+                                        "population": (
+                                            outputs[
+                                                "population"
+                                            ].copy()
+                                        ),
+                                        "permits": (
+                                            outputs[
+                                                "permits"
+                                            ].copy()
+                                        ),
+                                    }
+
+                                    st.session_state.analysis_source_label = (
+                                        "BigQuery cloud market database"
+                                    )
+
+                                    st.session_state.excluded_uploaded_markets = (
+                                        excluded_markets
+                                    )
+
+                                    st.session_state.available_uploaded_markets = (
+                                        sorted(common_markets)
+                                    )
+
+                                    st.session_state.selected_uploaded_markets = (
+                                        sorted(common_markets)
+                                    )
+
+                                    st.session_state.dataset_approved = True
+                                    st.session_state.validation_errors = []
+
+                                    status.update(
+                                        label=(
+                                            f"Cloud dataset approved — "
+                                            f"{len(outputs['decision'])} "
+                                            "markets ready"
+                                        ),
+                                        state="complete",
+                                        expanded=True,
+                                    )
+
+                        except Exception as error:
+                            st.session_state.dataset_approved = False
+                            st.session_state.validation_errors = [
+                                str(error)
+                            ]
+
+                except Exception as error:
+                    st.error(
+                        "The cloud market database could not be loaded. "
+                        f"Details: {error}"
+                    )
+
+            elif data_source == "Build from original source files":
 
                 st.caption(
                     "Follow the guide to find the required data. "
@@ -3248,7 +3524,10 @@ if (
             # Show Continue for either approved data source.
             if st.session_state.dataset_approved:
                 
-                if st.session_state.uploaded_time_series:
+                if (
+                    st.session_state.uploaded_time_series
+                    and data_source != "Use cloud market database"
+                ):
 
                     available_markets = (
                         st.session_state.available_uploaded_markets
