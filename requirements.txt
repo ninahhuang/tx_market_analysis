@@ -11,3 +11,4 @@ requests>=2.32,<3
 certifi
 pandas-gbq>=0.26.1
 google-cloud-bigquery-storage>=2.32,<3
+plotly
