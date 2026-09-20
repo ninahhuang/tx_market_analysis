@@ -1,7 +1,9 @@
 from datetime import date
 
 import streamlit as st
+
 from google.cloud import bigquery
+from google.oauth2 import service_account
 
 PROJECT_ID = "tx-market-analysis"
 DATASET_ID = "market_data"
@@ -11,7 +13,23 @@ MAX_ANALYSIS_MARKETS = 50
 
 @st.cache_resource
 def get_bigquery_client():
-    return bigquery.Client(project=PROJECT_ID)
+
+    if "gcp_service_account" in st.secrets:
+
+        credentials = (
+            service_account.Credentials.from_service_account_info(
+                dict(st.secrets["gcp_service_account"])
+            )
+        )
+
+        return bigquery.Client(
+            project=PROJECT_ID,
+            credentials=credentials,
+        )
+
+    return bigquery.Client(
+        project=PROJECT_ID
+    )
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_markets():
