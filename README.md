@@ -1,475 +1,230 @@
-# Market Match: Housing Market Investment Screening
+# Market Match: U.S. Housing Market Investment Screening
 
-Market Match is an interactive Streamlit dashboard for comparing housing markets based on long-term growth, current market conditions, and ranking stability.
+Market Match is a Streamlit dashboard for screening and comparing U.S. housing markets using housing values, population growth, market activity, and residential construction data.
 
-The project began as an analysis of nine North Dallas cities and now supports user-provided data for additional U.S. markets. The dashboard can validate original source files, standardize city-level data, calculate comparative scores, test ranking robustness, identify warning factors, and generate a client-ready comparison report.
+The application began as a North Dallas market analysis and has expanded into a national, BigQuery-backed dashboard. Users can compare cities across different states, inspect historical trends, adjust investment preferences, and generate ranked market results.
 
-## Live Dashboard
+> Market Match is a screening and research tool. It is not an investment forecast, appraisal, or substitute for property-level due diligence.
 
-[Open the deployed Streamlit dashboard](https://tx-market-analysis.streamlit.app/)
+## Live dashboard
 
-> Large national source files—particularly the complete Redfin download—may exceed the memory available on Streamlit Community Cloud. See [Deployment and Large-File Considerations](#deployment-and-large-file-considerations) before uploading very large files.
+[Open the Streamlit dashboard](https://tx-market-analysis.streamlit.app/)
 
-## Project Purpose
+## Repository
 
-A housing market with rapid population growth or strong historical appreciation does not necessarily have favorable current conditions. Fast-growing markets may also experience:
+[View the project on GitHub](https://github.com/ninahhuang/tx_market_analysis)
 
-- Rising inventory
-- Elevated housing supply
-- Slowing transaction activity
-- Increased residential construction
-- Weaker short-term price momentum
+## Key features
 
-More mature markets may have slower demographic growth but stronger current demand, greater pricing stability, or more consistent rankings.
+- Compare cities across multiple U.S. states
+- Select between 3 and 50 markets for an analysis
+- Compare up to 10 markets simultaneously in detailed charts
+- View home-value, population, residential-construction, and market-activity trends
+- Rank markets using adjustable investment preferences
+- Explore both long-term fundamentals and recent market momentum
+- Identify warning signals such as rising inventory or weakening sales
+- Generate downloadable PDF reports
+- Query centralized cloud data instead of requiring every user to upload source files
+- Retain local, uploaded-file, and raw-source workflows while the cloud migration is tested
 
-Market Match separates these considerations into three decision areas:
+## Current data options
 
-1. **Long-term fundamentals** — population growth, historical home-value appreciation, and demographic momentum.
-2. **Current market momentum** — pricing, sales activity, inventory, supply, and sale-to-list conditions.
-3. **Ranking robustness** — how consistently a market performs when the model’s assumptions and weights change.
+The dashboard currently supports four workflows:
 
-The result is a flexible market-screening tool rather than a single universal definition of the “best” market.
+1. **Included North Dallas data**  
+   Uses the processed demonstration dataset included with the repository.
 
-## Key Features
+2. **Cloud market database**  
+   Retrieves national city-level data from Google BigQuery. This is the intended production workflow.
 
-- Included nine-market North Dallas demonstration dataset
-- Upload support for completed market-scoring CSV files
-- Original-source processing for user-selected U.S. cities
-- Zillow, Redfin, and U.S. Census source integration
-- CSV and Excel support for Census population estimates
-- Multiple-file support for annual building-permit data
-- Chunked processing for large Redfin CSV files
-- Animated dataset compatibility checks
-- Automatic column and value standardization
-- Missing-value, duplicate-record, and numeric-format validation
-- Cross-source city-coverage validation
-- Selection of all compatible markets or specific cities
-- Three investor strategy presets
-- Adjustable fundamentals, momentum, and robustness weights
-- Personalized preference-match scores
-- 10,000-run ranking-robustness simulation
-- Investor-friendly market comparison cards
-- Individual market deep dives
-- Historical home-value, population, and construction charts
-- Warning factors with recommended next steps
-- Downloadable client comparison report
-- Demonstration files for successful and unsuccessful upload testing
-- Detailed data dictionary, methodology, and testing documentation
+3. **Market-scoring file upload**  
+   Accepts a prepared CSV or Excel file containing market metrics.
 
-## How the Dashboard Works
+4. **Original source-file workflow**  
+   Accepts Zillow, Census, Redfin, and building-permit source files and processes them locally.
 
-### Step 1: Choose a Dataset
+The legacy options will remain available until the national cloud dataset passes final validation. The public dashboard can then be simplified to use only the cloud database.
 
-The dashboard provides three ways to begin.
+## Dashboard workflow
 
-#### Option A: Use the Included North Dallas Data
+### 1. Choose a data source
 
-The included demonstration dataset covers:
+Select the included demonstration data, the BigQuery cloud database, a prepared scoring file, or original source files.
 
-- Anna
-- Celina
-- Frisco
-- McKinney
-- Melissa
-- Plano
-- Princeton
-- Prosper
-- Richardson
+### 2. Select markets
 
-This option is ready for immediate analysis and does not require any file uploads.
+When using BigQuery, select cities from the national market directory. Market labels include the state abbreviation—for example:
 
-#### Option B: Upload a Market-Scoring File
+- Knoxville, TN
+- Frisco, TX
+- Huntsville, AL
+- Raleigh, NC
 
-Users can upload a completed CSV containing one row per housing market.
+The dashboard uses a stable `market_id` internally, so cities with identical names in different states remain separate.
 
-Required columns are:
+### 3. Set investment preferences
 
-- `City`
-- `Long_Term_Fundamentals_Score`
-- `Fundamentals_Rank`
-- `Current_Market_Momentum_Score`
-- `Momentum_Rank`
-- `Pct_Top_3`
-- `Average_Rank`
-- `Robustness_Profile`
-- `Current_Market_Regime`
+Adjust the relative importance of market fundamentals and recent momentum. An optional robustness component can be included when simulation results are available.
 
-The dashboard checks:
+### 4. Review the rankings
 
-- Required columns
-- A minimum of three market rows
-- Unique and nonblank city names
-- Numeric score and ranking values
-- Score ranges from 0 to 100
+The dashboard produces:
 
-Demonstration files are available in the [`demo/`](demo/) folder:
-
-- [`valid_market_scoring_sample.csv`](demo/valid_market_scoring_sample.csv) — passes all compatibility checks
-- [`invalid_market_scoring_sample.csv`](demo/invalid_market_scoring_sample.csv) — demonstrates duplicate, nonnumeric, and out-of-range validation errors
-
-#### Option C: Build from Original Source Files
-
-Users can upload original city-level files from four sources:
-
-1. Zillow home-value history
-2. Redfin housing-market activity
-3. U.S. Census population estimates
-4. U.S. Census residential building permits
-
-The dashboard then:
-
-1. Reads the source files.
-2. Standardizes market names and state identifiers.
-3. Converts source measurements into consistent numeric formats.
-4. Checks required columns, missing values, and duplicate records.
-5. Identifies cities represented across every source.
-6. Excludes markets that cannot be matched across all four sources.
-7. Allows the user to analyze all compatible markets or select specific cities.
-8. Calculates market-level features.
-9. Calculates fundamentals and momentum scores.
-10. Runs the ranking-robustness simulation.
-11. Builds a model-ready decision table.
-
-At least three fully matched markets are required for comparative scoring and ranking.
-
-### Step 2: Select Markets
-
-When original source files are approved, users can choose:
-
-- **All markets** — analyzes every city represented across all four sources.
-- **Select specific cities** — allows users to search for and select individual city-state combinations.
-
-At least three markets must be selected. Scores and ranks are recalculated for the selected comparison group.
-
-### Step 3: Build an Investment Strategy
-
-Users can begin with one of three presets:
-
-| Strategy | Fundamentals | Momentum | Intended emphasis |
-|---|---:|---:|---|
-| Long-Term Growth | 70% | 30% | Demographic growth and historical appreciation |
-| Balanced | 50% | 50% | Equal attention to long-term and current conditions |
-| Current Resilience | 30% | 70% | Current pricing, demand, inventory, and supply |
-
-Users can also adjust the sliders manually. When the values no longer match a preset, the strategy is identified as **Custom**.
-
-Fundamentals and momentum weights must total 100%.
-
-A separate robustness control determines how much ranking stability influences the final preference-match score. Robustness can contribute up to 30% of the final score.
-
-### Step 4: Review the Results
-
-The results workspace contains two primary views.
-
-#### Results Summary
-
-The summary presents:
-
-- Best overall match
-- Alternative markets
-- Preference-match score
-- Fundamentals score
-- Momentum score
-- Top-three probability
-- Primary market strength
-- Main factor to monitor
-
-#### Compare & Explore
-
-Users can compare up to three markets and explore any market included in the current analysis.
-
-The market explorer includes:
-
-- Five-year home-value CAGR
-- Population CAGR
-- Homes-sold year-over-year change
-- Months of supply
-- Historical Zillow Home Value Index
-- Annual population trend
-- Residential construction activity
+- Composite preference scores
 - Fundamentals and momentum scores
-- Average simulated rank
-- Top-three probability
-- Market regime
-- Robustness classification
-- Factors to monitor
-- Recommended investor next steps
+- Market tier classifications
+- Warning indicators
+- Supporting market measurements
 
-Users can also download a client-facing market comparison report as a PDF.
+### 5. Compare trends
 
-## Data Sources
+View charts for:
 
-### Zillow Research
+- One city at a time
+- A selected comparison group
+- All selected cities
 
-[Zillow Research Housing Data](https://www.zillow.com/research/data/)
+Large analysis groups are supported, but detailed overlaid charts are intentionally limited to a smaller number of markets to preserve readability.
 
-The raw-data workflow uses city-level Zillow Home Value Index history to calculate:
+## Data architecture
 
-- Latest typical home value
-- Five-year home-value CAGR
-- Year-over-year home-value change
+Market Match uses Google BigQuery as its central analytical database.
 
-The file should contain at least five years of monthly history.
+```text
+Public data sources
+        │
+        ▼
+Python ingestion and validation scripts
+        │
+        ▼
+Google BigQuery: market_data
+        │
+        ▼
+Parameterized dashboard queries
+        │
+        ▼
+Streamlit analysis and visualizations
+```
 
-### Redfin Data Center
+The dashboard queries only the selected market IDs and relevant date ranges. Query results are cached for one hour to reduce repeated BigQuery usage.
 
-[Redfin Data Center Downloads](https://www.redfin.com/news/data-center/downloads/)
+## BigQuery tables
 
-The dashboard uses monthly city-level Redfin data for:
+The `market_data` dataset contains the following primary tables:
+
+| Table | Purpose | Typical grain |
+|---|---|---|
+| `markets` | Canonical city and state directory | One row per market |
+| `home_values` | Zillow Home Value Index history | Market and month |
+| `population` | Census annual population estimates | Market and year |
+| `market_activity` | Redfin housing-market measurements | Market and month |
+| `building_permits` | Census permitted housing units | Market and year |
+
+The application may also use derived tables such as:
+
+- `final_decision_table`
+- `market_ranking_robustness`
+
+### Market identity
+
+Each market has a stable identifier and supporting geographic fields:
+
+- `market_id`
+- `city`
+- `state_name`
+- `state_code`
+- `state_fips`
+- `place_fips`
+
+The combination of state and city prevents records such as Springfield, Missouri and Springfield, Illinois from being merged accidentally.
+
+## Data sources
+
+### Zillow Home Value Index
+
+Monthly city-level home-value history is sourced from the [Zillow Research Data](https://www.zillow.com/research/data/) library.
+
+The production loader downloads Zillow’s city-level ZHVI data, standardizes city and state names, matches observations to the Census market directory, and loads the resulting records into BigQuery.
+
+### U.S. Census population estimates
+
+Annual city and town population estimates come from the Census Bureau’s [Population Estimates Program](https://www.census.gov/data/tables/time-series/demo/popest/2020s-total-cities-and-towns.html).
+
+The current loader uses the newest configured Census vintage and preserves the vintage value so later revisions can be identified.
+
+### Redfin market activity
+
+City-level market measurements come from the [Redfin Data Center](https://www.redfin.com/news/data-center/downloads/).
+
+The project uses measurements such as:
 
 - Homes sold
-- Inventory or active listings
+- Inventory
 - Months of supply
-- Average sale-to-list ratio
+- Sale-to-list ratio
 
-The national Redfin file is read in chunks to reduce processing memory. Missing values should remain missing rather than being replaced with zero.
+Redfin’s city-level monthly data may represent rolling three-month periods. See the [Redfin methodology](https://www.redfin.com/news/data-center/methodology/) before interpreting short-term movements.
 
-### U.S. Census Bureau Population Estimates
+### Census Building Permits Survey
 
-[City and Town Population Estimates](https://www.census.gov/data/tables/time-series/demo/popest/2020s-total-cities-and-towns.html)
+Residential construction data comes from the Census Bureau’s [Building Permits Survey](https://www.census.gov/construction/bps/) place-level files.
 
-The dashboard accepts population files in:
+The loader is designed to combine the Census region files for multiple years, map each record to a state and place, and load annual authorized-unit totals into BigQuery.
 
-- CSV format
-- Excel `.xlsx` format
+The underlying files are available from the [Census place-level BPS directory](https://www2.census.gov/econ/bps/Place/).
 
-Population data is used to calculate:
+## Scoring methodology
 
-- Latest population
-- Population CAGR
-- Recent annual population growth
-- Population-growth acceleration or deceleration
+The dashboard separates structural market fundamentals from recent housing-market momentum.
 
-Use one consistent Census vintage. Previously reported estimates may be revised between vintages, so separate vintages should not be combined.
+### Fundamentals score
 
-The current automatic full-state-name mapping includes:
+The default fundamentals score is based on:
 
-- Arizona
-- California
-- Colorado
-- Florida
-- Georgia
-- North Carolina
-- South Carolina
-- Tennessee
-- Texas
+- 45% population compound annual growth
+- 35% five-year home-value compound annual growth
+- 20% population-growth acceleration
 
-Supporting another state may require adding its full name and two-letter abbreviation to the `STATE_ABBREVIATIONS` mapping in `dashboard/raw_data_pipeline.py`.
+### Momentum score
 
-### U.S. Census Bureau Building Permits Survey
+The default momentum score is based on:
 
-[Building Permits Survey](https://www.census.gov/construction/bps/)
+- 25% home-value year-over-year change
+- 20% homes-sold year-over-year change
+- 20% inverse inventory growth
+- 20% inverse months of supply
+- 15% sale-to-list percentage
 
-[Place-Level Building Permit Files](https://www2.census.gov/econ/bps/Place/)
+Metrics are normalized to a relative 0–100 scale within the comparison group.
 
-Building-permit data is used to calculate:
+### Preference score
 
-- Latest annual permitted housing units
-- Average annual permitted housing units
-- Latest permits per 1,000 residents
-- Average permits per 1,000 residents
+Users can adjust the balance between fundamentals and momentum. When robustness results are available, robustness can contribute up to 30% of the final score.
 
-The dashboard accepts multiple annual place-level files in CSV or TXT format.
+Because the scores are relative, a city’s result can change when the comparison group changes.
 
-For a recent six-year comparison, users can upload one annual file for each year from 2020 through 2025.
+### Warning indicators
 
-Building permits measure units authorized, not necessarily units completed.
+The dashboard can flag conditions such as:
 
-## Data Requirements
+- Inventory growth greater than 10%
+- More than five months of supply
+- Negative year-over-year homes-sold growth
+- Sale-to-list percentage below 98%
 
-For the original-source workflow:
+Warnings are screening signals, not automatic investment decisions.
 
-- Every file must contain city- or place-level data.
-- City data should not be combined with county, ZIP-code, neighborhood, or metropolitan-area data.
-- The same cities should appear across all four sources.
-- At least three cities must appear in every source.
-- Source files should cover comparable periods.
-- Zillow history must contain at least five years of observations.
-- Redfin data must contain current and prior-year monthly observations.
-- Population data must include at least three annual observations.
-- Population estimates must come from one Census vintage.
-- Permit uploads should include one annual file for each selected year.
-- City and state information must be present or derivable.
-- Required numeric measurements must not be blank.
-- Missing values must not be replaced with zero.
-- Duplicate market-period records must be resolved.
+## Robustness analysis
 
-The model uses the intersection of markets available across all four sources. A market missing from any source is excluded.
+The modeling workflow can test ranking stability across 10,000 simulated weighting scenarios.
 
-For exact columns, units, date formats, and accepted file structures, see the [Data Dictionary](docs/data_dictionary.md).
+This helps distinguish:
 
-## Methodology
+- Markets that remain highly ranked across many reasonable assumptions
+- Markets whose rankings are highly dependent on one particular weighting choice
+- Markets that appear attractive but have unstable results
 
-### Feature Standardization
-
-Market measurements are converted to comparable scores from 0 to 100 using min-max scaling.
-
-Higher values are treated as favorable for:
-
-- Population CAGR
-- Five-year home-value CAGR
-- Population-growth acceleration
-- Year-over-year home-value change
-- Year-over-year homes-sold change
-- Sale-to-list percentage
-
-Lower values are treated as favorable for:
-
-- Inventory growth
-- Months of supply
-
-Inventory growth and months of supply are therefore reverse-scored.
-
-If every market has the same value for a measurement, each market receives a neutral score of 50 for that measurement.
-
-Because the model uses relative scaling, scores depend on the markets included in the analysis.
-
-### Long-Term Fundamentals Score
-
-```text
-Long-Term Fundamentals Score
-= 45% × Population CAGR Score
-+ 35% × Five-Year Home-Value CAGR Score
-+ 20% × Population-Growth Acceleration Score
-```
-
-A higher score indicates stronger longer-term demographic and home-value growth relative to the other selected markets.
-
-### Current Market Momentum Score
-
-```text
-Current Market Momentum Score
-= 25% × Home-Value YoY Score
-+ 20% × Homes-Sold YoY Score
-+ 20% × Reverse Inventory YoY Score
-+ 20% × Reverse Months-of-Supply Score
-+ 15% × Sale-to-List Score
-```
-
-A higher score indicates stronger current market conditions relative to the other selected markets.
-
-### Preference-Match Score
-
-The user-selected fundamentals and momentum weights create a base score:
-
-```text
-Base Preference Score
-= Fundamentals Weight × Fundamentals Score
-+ Momentum Weight × Momentum Score
-```
-
-Ranking robustness can then influence up to 30% of the result:
-
-```text
-Preference-Match Score
-= (1 − Robustness Share) × Base Preference Score
-+ Robustness Share × Top-Three Probability
-```
-
-The preference-match score measures alignment with the selected strategy. It is not a predicted return.
-
-### Ranking-Robustness Simulation
-
-The model runs 10,000 alternative weighting scenarios.
-
-During each simulation:
-
-1. The fundamentals measurements receive randomized weights.
-2. The momentum measurements receive randomized weights.
-3. The total fundamentals share is randomly selected between 30% and 70%.
-4. The remaining share is assigned to momentum.
-5. Every market receives a simulated composite score.
-6. Markets are ranked for that simulation.
-
-The model records:
-
-- Percentage of simulations in which each market ranks in the top three
-- Average simulated rank
-- Robustness classification
-
-Robustness profiles are assigned as follows:
-
-| Top-three probability | Classification |
-|---:|---|
-| 75% or higher | Highly Robust |
-| 40% to less than 75% | Moderately Robust |
-| 15% to less than 40% | Weight Sensitive |
-| Less than 15% | Consistently Lower Ranked |
-
-Robustness measures ranking consistency under changing assumptions. It does not represent investment certainty.
-
-### Market Regimes
-
-Markets are classified using their fundamentals and momentum scores:
-
-| Fundamentals | Momentum | Market regime |
-|---:|---:|---|
-| 50 or higher | 50 or higher | Strong / Expanding |
-| 50 or higher | Below 50 | Long-Term Strength / Near-Term Pressure |
-| Below 50 | 50 or higher | Momentum-Led / Developing Fundamentals |
-| Below 50 | Below 50 | Weak / Transitional |
-
-These classifications summarize the current model results and are not forecasts.
-
-For complete formulas and interpretation guidance, see [Methodology](docs/methodology.md).
-
-## Warning Factors
-
-The market explorer identifies four threshold-based conditions.
-
-### Inventory Growth
-
-Triggered when:
-
-```text
-Inventory YoY > 10%
-```
-
-Recommended response:
-
-Review competing listings, expected time on market, and rent assumptions before making an offer.
-
-### Months of Supply
-
-Triggered when:
-
-```text
-Months of Supply > 5
-```
-
-Recommended response:
-
-Use conservative appreciation assumptions and investigate price reductions, closing credits, or other seller concessions.
-
-### Home-Sales Activity
-
-Triggered when:
-
-```text
-Homes Sold YoY < 0%
-```
-
-Recommended response:
-
-Confirm recent comparable sales and allow for a longer holding or resale period.
-
-### Sale-to-List Ratio
-
-Triggered when:
-
-```text
-Sale-to-List Percentage < 98%
-```
-
-Recommended response:
-
-Compare recent asking and closing prices and consider negotiating below list price.
-
-When no threshold is triggered, the dashboard recommends routine monitoring.
-
-Warning factors are due-diligence signals. They do not automatically disqualify a market.
-
-## Project Structure
+## Project structure
 
 ```text
 tx_market_analysis/
@@ -477,26 +232,21 @@ tx_market_analysis/
 │   └── config.toml
 ├── dashboard/
 │   ├── app.py
+│   ├── bigquery_data.py
+│   ├── bigquery_test_page.py
 │   ├── client_app.py
 │   ├── pdf_report.py
 │   └── raw_data_pipeline.py
+├── scripts/
+│   ├── load_census_building_permits.py
+│   ├── load_census_markets_population.py
+│   ├── load_redfin_market_activity.py
+│   └── load_zillow_home_values.py
 ├── data/
 │   └── processed/
-│       ├── dallas_building_permits_annual.csv
-│       ├── dallas_construction_summary.csv
-│       ├── dallas_final_decision_table.csv
-│       ├── dallas_market_diagnostics.csv
-│       ├── dallas_market_master.csv
-│       ├── dallas_market_scores.csv
-│       ├── dallas_market_snapshot.csv
-│       ├── dallas_population_annual.csv
-│       ├── dallas_population_summary.csv
-│       ├── dallas_ranking_robustness.csv
-│       ├── dallas_redfin_market_activity.csv
-│       └── dallas_zhvi_monthly.csv
 ├── demo/
-│   ├── invalid_market_scoring_sample.csv
-│   └── valid_market_scoring_sample.csv
+│   ├── valid_market_scoring_sample.csv
+│   └── invalid_market_scoring_sample.csv
 ├── docs/
 │   ├── data_dictionary.md
 │   ├── methodology.md
@@ -504,223 +254,260 @@ tx_market_analysis/
 ├── notebooks/
 │   ├── 01_data_cleaning.ipynb
 │   ├── 02_market_eda.ipynb
-│   └── 03_market_momentum_model.ipynb
-├── .gitignore
+│   ├── 03_market_momentum_model.ipynb
+│   └── 04_national_screening_validation.ipynb
+├── requirements.txt
+├── requirements-dev.txt
 ├── LICENSE
-├── README.md
-└── requirements.txt
+└── README.md
 ```
 
-### Main Application Files
+## Local installation
 
-- `dashboard/client_app.py` — current investor-facing Streamlit application
-- `dashboard/raw_data_pipeline.py` — source ingestion, cleaning, validation, feature engineering, scoring, and robustness analysis
-- `dashboard/pdf_report.py` — client comparison PDF generation
-- `dashboard/app.py` — earlier dashboard implementation retained for reference
-- `data/processed/` — prepared North Dallas demonstration data
-- `notebooks/` — original data preparation, exploratory analysis, and model-development work
+### Requirements
 
-### Documentation
+- Python 3.11 or newer
+- Git
+- Google Cloud CLI for BigQuery authentication
+- Access to the `tx-market-analysis` Google Cloud project, or a replacement project with the required tables
 
-- [`docs/data_dictionary.md`](docs/data_dictionary.md) — accepted files, required columns, units, date formats, and geographic requirements
-- [`docs/methodology.md`](docs/methodology.md) — feature calculations, score formulas, robustness analysis, market regimes, and warning thresholds
-- [`docs/testing_checklist.md`](docs/testing_checklist.md) — application, upload, selector, visualization, PDF, and deployment testing procedures
-
-### Demonstration Files
-
-- [`demo/valid_market_scoring_sample.csv`](demo/valid_market_scoring_sample.csv) — sample file designed to pass validation
-- [`demo/invalid_market_scoring_sample.csv`](demo/invalid_market_scoring_sample.csv) — sample file designed to demonstrate validation failures
-
-Raw national source datasets are excluded from Git. Prepared North Dallas outputs are included so the demonstration can run without downloading the original files.
-
-## Running the Dashboard Locally
-
-### 1. Clone the Repository
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/ninahhuang/tx_market_analysis.git
 cd tx_market_analysis
 ```
 
-### 2. Create a Virtual Environment
-
-```bash
-python3 -m venv .venv
-```
-
-### 3. Activate the Environment
+### 2. Create and activate a virtual environment
 
 On macOS or Linux:
 
 ```bash
+python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-On Windows PowerShell:
+On Windows:
 
 ```powershell
-.venv\Scripts\Activate.ps1
+py -m venv .venv
+.venv\Scripts\activate
 ```
 
-### 4. Install Dependencies
+### 3. Install the dependencies
 
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-Installing the requirements is necessary for PDF generation because `dashboard/pdf_report.py` depends on ReportLab.
-
-If ReportLab is unavailable after installation:
+### 4. Authenticate with Google Cloud
 
 ```bash
-python -m pip install "reportlab>=4.2,<5"
+gcloud auth application-default login
+gcloud auth application-default set-quota-project tx-market-analysis
+gcloud config set project tx-market-analysis
 ```
 
-### 5. Start the Dashboard
+Confirm that the application can see the dataset:
 
-Run Streamlit from the repository root so it detects `.streamlit/config.toml`:
+```bash
+python -c 'from google.cloud import bigquery; client = bigquery.Client(project="tx-market-analysis"); print([dataset.dataset_id for dataset in client.list_datasets()])'
+```
+
+The output should include:
+
+```text
+market_data
+```
+
+### 5. Start the dashboard
 
 ```bash
 streamlit run dashboard/client_app.py
 ```
 
-The dashboard normally opens at:
+Open the local address shown in the terminal, normally:
 
 ```text
 http://localhost:8501
 ```
 
-## Testing the Dashboard
+## Loading production data
 
-The repository contains two demonstration scoring files.
+Run loader scripts from the repository’s top-level directory with the virtual environment activated.
 
-### Test a Successful Upload
+### Census market directory and population
 
-Upload:
-
-```text
-demo/valid_market_scoring_sample.csv
+```bash
+python -m scripts.load_census_markets_population
 ```
 
-Expected result:
+### Zillow home values
 
-- All five compatibility checks pass.
-- The dataset is approved.
-- The user can continue to strategy selection.
-- All three sample markets appear in the analysis.
-
-### Test an Unsuccessful Upload
-
-Upload:
-
-```text
-demo/invalid_market_scoring_sample.csv
+```bash
+python -m scripts.load_zillow_home_values
 ```
 
-Expected result:
+### Redfin market activity
 
-- The duplicate city is identified.
-- The nonnumeric fundamentals rank is identified.
-- The momentum score above 100 is identified.
-- The top-three probability below zero is identified.
-- The application remains running, but the dataset is not approved.
+Place the Redfin city-level source file at one of the expected local paths, such as:
 
-For the complete manual testing process, see the [Dashboard Testing Checklist](docs/testing_checklist.md).
+```text
+data/raw/redfin_monthly_city.csv
+```
 
-## Streamlit Configuration
+Then run:
 
-The project uses `.streamlit/config.toml` for theme and upload settings:
+```bash
+python -m scripts.load_redfin_market_activity
+```
+
+### Census building permits
+
+```bash
+python -m scripts.load_census_building_permits
+```
+
+The raw source files should not be committed to Git. Only code, documentation, small demonstration files, and appropriate processed outputs should be version controlled.
+
+## Streamlit deployment
+
+The deployed application should authenticate with a dedicated Google Cloud service account rather than a developer’s personal credentials.
+
+Add the service-account fields to Streamlit’s secrets manager under:
 
 ```toml
-[server]
-maxUploadSize = 500
-maxMessageSize = 500
-
-[theme]
-base = "dark"
-primaryColor = "#9BB6FF"
-backgroundColor = "#111638"
-secondaryBackgroundColor = "#171C4D"
-textColor = "#FCFAFF"
+[gcp_service_account]
 ```
 
-The 500 MB configuration changes Streamlit’s permitted upload size. It does not increase the memory available to the local computer or deployed application.
+The expected fields include:
 
-Restart the Streamlit server after changing configuration values.
+- `type`
+- `project_id`
+- `private_key_id`
+- `private_key`
+- `client_email`
+- `client_id`
+- `auth_uri`
+- `token_uri`
+- `auth_provider_x509_cert_url`
+- `client_x509_cert_url`
 
-## Deployment and Large-File Considerations
+Never commit a service-account key, `.streamlit/secrets.toml`, or Application Default Credentials file to the repository.
 
-The dashboard can be deployed through Streamlit Community Cloud using:
+The dashboard service account should receive only the permissions it needs, normally:
 
-```text
-dashboard/client_app.py
+- BigQuery Data Viewer
+- BigQuery Job User
+
+## Testing
+
+Install development dependencies:
+
+```bash
+python -m pip install -r requirements-dev.txt
 ```
 
-as the main application file.
+Run the automated test suite:
 
-The complete national Redfin CSV is considerably larger than the other sources. Although the dashboard processes it in chunks, Streamlit first receives the uploaded file. Processing the national dataset may exceed the memory available on Community Cloud.
+```bash
+python -m pytest
+```
 
-For a more scalable public deployment:
+Compile the main application files:
 
-1. Process the national Redfin dataset outside the deployed application.
-2. Retain only the columns required by the model.
-3. Divide the data into smaller state-level files.
-4. Store the prepared files in cloud storage or another server-side location.
-5. Ask the user to select a state before selecting cities.
-6. Load and cache only the selected state’s data.
+```bash
+python -m compileall dashboard scripts
+```
 
-The 500 MB upload configuration permits larger uploads but does not guarantee sufficient processing memory.
+A BigQuery connection test page is also available:
 
-## Technologies
+```bash
+streamlit run dashboard/bigquery_test_page.py
+```
 
-- Python
-- Streamlit
-- pandas
-- NumPy
-- Altair
-- ReportLab
-- OpenPyXL
-- Jupyter Notebook
-- Git and GitHub
+Before deploying a new data load, validate:
 
-## Limitations
+- Row counts
+- Market counts
+- Minimum and maximum dates
+- Missing values
+- Duplicate market-period records
+- Negative or impossible measurements
+- Unmatched city and state keys
+- Coverage across all required sources
+- Dashboard behavior for one, several, and large groups of cities
 
-- The model compares cities relative to the markets in the current analysis.
-- Scores and ranks may change when cities are added or removed.
-- Min-max scaling can be affected by extreme values.
-- Results depend on source availability and consistent market naming.
-- City-level analysis does not capture neighborhood or property-level differences.
-- Recent housing indicators may change quickly or be revised.
-- Building permits represent authorized construction rather than completed housing.
-- Construction measurements currently provide context but do not directly affect the fundamentals or momentum scores.
-- Ranking robustness measures model stability, not investment certainty.
-- Historical appreciation does not guarantee future performance.
-- The current Census full-state-name mapping does not yet include every U.S. state.
-- Large national source files may exceed hosted Streamlit resources.
-- The dashboard does not model individual-property prices, rents, operating expenses, financing, taxes, insurance, renovation costs, or investor cash flows.
+See [docs/testing_checklist.md](docs/testing_checklist.md) for the project checklist.
 
-## Intended Use
+## Current migration status
 
-Market Match is designed for:
+| Component | Status |
+|---|---|
+| BigQuery connection | Implemented |
+| Cross-state market directory | Implemented |
+| Cloud market selector | Implemented |
+| Census population loader | Implemented and tested |
+| Zillow home-value loader | Implemented and tested |
+| Redfin market-activity loader | Implemented and tested |
+| Census building-permit loader | Implemented; final production validation required |
+| Local and uploaded-data workflows | Retained during testing |
+| Cloud-only public landing screen | Planned after final validation |
 
-- Initial market screening
-- Comparing housing-market candidates
-- Identifying market strengths and tradeoffs
-- Testing sensitivity to different investor priorities
-- Preparing client-facing market discussions
-- Directing deeper market, neighborhood, and property-level research
+## Data limitations
 
-It should not be used as the sole basis for an investment decision.
+- Market Match compares cities, not individual properties or neighborhoods.
+- Source providers may revise historical records.
+- Missing observations are not interpreted as zero.
+- Building permits measure authorized construction, not completed housing units.
+- Redfin rolling periods should not be interpreted as isolated single-month totals.
+- Scores are relative to the selected comparison group.
+- Cities without sufficient cross-source coverage may be excluded during analysis.
+- The Census incorporated-place source does not represent every possible community type. Hawaii may require a separate Census-designated-place workflow.
+- City boundaries and housing-market definitions vary between data providers.
+- Recent data may be preliminary.
+
+## Cost controls
+
+BigQuery costs depend on stored data and the amount of data scanned by queries. This project reduces unnecessary usage by:
+
+- Partitioning time-series tables
+- Clustering data by `market_id`
+- Querying only selected markets
+- Selecting only required columns
+- Applying date filters
+- Caching dashboard query results
+- Setting Google Cloud budgets and alerts
+
+A budget alert does not automatically prevent spending. Billing reports and query usage should still be reviewed regularly.
+
+## Documentation
+
+Additional documentation is available in:
+
+- [Data dictionary](docs/data_dictionary.md)
+- [Methodology](docs/methodology.md)
+- [Testing checklist](docs/testing_checklist.md)
+
+## Roadmap
+
+Planned improvements include:
+
+- Finish production validation of the building-permit pipeline
+- Restrict the public selector to markets with complete source coverage
+- Replace the landing screen with a cloud-only workflow
+- Automate scheduled source refreshes
+- Add freshness indicators for every source
+- Improve geographic matching for Census-designated places
+- Add additional market-level economic and rental indicators
+- Expand automated data-quality monitoring
+- Add user-friendly explanations of scoring sensitivity
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
-
-The license applies to the project’s original code and documentation. Third-party data remains subject to the terms and policies of its original providers.
+This project is licensed under the terms provided in [LICENSE](LICENSE).
 
 ## Disclaimer
 
-This project is an analytical market-screening tool. It does not provide financial, investment, legal, tax, lending, or real-estate advice.
-
-Results should be combined with current local-market research, neighborhood-level analysis, property-level underwriting, professional guidance, and independent due diligence before making an investment decision.
+This software and its outputs are provided for educational and analytical purposes only. Nothing in the dashboard constitutes financial, legal, tax, real-estate, or investment advice. Users should independently verify the source data and conduct property-level, legal, financial, and market due diligence before making an investment decision.
