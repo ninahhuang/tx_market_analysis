@@ -24,7 +24,6 @@ def load_markets():
             state_name,
             state_code
         FROM `{PROJECT_ID}.{DATASET_ID}.markets`
-        WHERE active IS TRUE
         ORDER BY state_code, city
     """
 
@@ -381,3 +380,48 @@ def load_analysis_sources(market_ids):
         "population": population,
         "permits": permits,
     }
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_final_decision_table():
+    client = get_bigquery_client()
+
+    query = f"""
+        SELECT *
+        FROM `{PROJECT_ID}.{DATASET_ID}.final_decision_table`
+        ORDER BY national_robust_rank
+    """
+
+    return client.query(
+        query
+    ).to_dataframe(create_bqstorage_client=False)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_texas_decision_table():
+    client = get_bigquery_client()
+
+    query = f"""
+        SELECT *
+        FROM `{PROJECT_ID}.{DATASET_ID}.final_decision_table`
+        WHERE state_code = 'TX'
+        ORDER BY state_robust_rank
+    """
+
+    return client.query(
+        query
+    ).to_dataframe(create_bqstorage_client=False)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_ranking_robustness():
+    client = get_bigquery_client()
+
+    query = f"""
+        SELECT *
+        FROM `{PROJECT_ID}.{DATASET_ID}.market_ranking_robustness`
+        ORDER BY avg_rank
+    """
+
+    return client.query(
+        query
+    ).to_dataframe(create_bqstorage_client=False)

@@ -2,6 +2,7 @@ from pathlib import Path
 
 import altair as alt
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 import time
 
@@ -10,6 +11,9 @@ from pdf_report import build_market_comparison_pdf
 from bigquery_data import (
     load_analysis_sources,
     load_markets,
+    load_final_decision_table,
+    load_texas_decision_table,
+    load_ranking_robustness,
 )
 
 from raw_data_pipeline import (
@@ -3183,6 +3187,14 @@ if (
                                         sorted(common_markets)
                                     )
 
+                                    st.session_state.selected_uploaded_markets = sorted(
+                                        common_markets
+                                    )
+
+                                    st.session_state.available_uploaded_markets = sorted(
+                                        common_markets
+                                    )
+
                                     st.session_state.dataset_approved = True
                                     st.session_state.validation_errors = []
 
@@ -3596,6 +3608,21 @@ if (
                             "calculate meaningful comparative rankings."
                         )
 
+                elif (
+                    st.session_state.uploaded_time_series
+                    and data_source == "Use cloud market database"
+                ):
+                    selected_markets = (
+                        st.session_state.selected_uploaded_markets
+                    )
+
+                    selection_is_valid = len(selected_markets) >= 3
+
+                    st.info(
+                        f"{len(selected_markets)} validated cloud markets "
+                        "will be analyzed."
+                    )
+
                 else:
                     # Preserve the existing included North Dallas behavior.
                     selected_markets = []
@@ -3638,6 +3665,26 @@ if (
                         ].loc[
                             lambda df: df["Market_ID"].isin(selected_ids)
                         ].copy()
+
+                        st.write("DEBUG selected IDs:", selected_ids)
+
+                        st.write(
+                            "DEBUG population Market_ID sample:",
+                            source_tables["population"]["Market_ID"]
+                            .drop_duplicates()
+                            .head(20)
+                            .tolist()
+                        )
+
+                        st.write(
+                            "DEBUG selected population shape:",
+                            selected_population.shape
+                        )
+
+                        st.write(
+                            "DEBUG selected population rows per market:",
+                            selected_population.groupby("Market_ID").size().to_dict()
+                        )
 
                         selected_outputs = build_model_outputs(
                             selected_home_values,
@@ -4693,10 +4740,17 @@ if st.button(
         del st.session_state.market_explorer_market_id
     st.rerun()
 
-summary_tab, explore_tab = st.tabs(
+(
+    summary_tab,
+    explore_tab,
+    national_tab,
+    texas_tab,
+) = st.tabs(
     [
         "Results Summary",
         "Compare & Explore",
+        "National Screener",
+        "Texas Deep Dive",
     ]
 )
 
@@ -6012,3 +6066,766 @@ with explore_tab:
             ),
             unsafe_allow_html=True,
         )
+
+# ============================================================
+# NATIONAL SCREENER
+# ============================================================
+
+with national_tab:
+
+    national_data = load_final_decision_table().copy()
+
+    # --------------------------------------------------------
+    # TITLE
+    # --------------------------------------------------------
+
+    st.markdown(
+        compact_html(
+            """
+            <h2 class="section-heading">
+                National Market Screener
+            </h2>
+
+            <div class="section-subtitle">
+                Screen eligible U.S. housing markets using long-term
+                growth, market demand, supply conditions, and
+                cross-scenario ranking robustness.
+            </div>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
+    # --------------------------------------------------------
+    # STATE FILTER
+    # --------------------------------------------------------
+
+    state_options = sorted(
+        national_data["state_code"]
+        .dropna()
+        .unique()
+        .tolist()
+    )
+
+    selected_states = st.multiselect(
+        "State",
+        options=state_options,
+        placeholder="All states",
+        key="national_state_filter",
+    )
+
+    # --------------------------------------------------------
+    # DYNAMIC SUMMARY DATA
+    # --------------------------------------------------------
+
+    if selected_states:
+
+        summary_data = national_data[
+            national_data["state_code"].isin(
+                selected_states
+            )
+        ].copy()
+
+    else:
+
+        summary_data = national_data.copy()
+
+    # --------------------------------------------------------
+    # DYNAMIC CAPTION
+    # --------------------------------------------------------
+
+    if not selected_states:
+
+        summary_caption = (
+            "National screening universe based on the finalized "
+            "BigQuery market model."
+        )
+
+    elif len(selected_states) == 1:
+
+        summary_caption = (
+            f"{selected_states[0]} screening universe • "
+            f"{len(summary_data):,} eligible markets."
+        )
+
+    else:
+
+        summary_caption = (
+            f"{len(selected_states)} selected states • "
+            f"{len(summary_data):,} eligible markets."
+        )
+
+    st.caption(summary_caption)
+
+    # --------------------------------------------------------
+    # SUMMARY METRICS
+    # --------------------------------------------------------
+
+    metric_1, metric_2, metric_3, metric_4 = st.columns(4)
+
+    with metric_1:
+        st.metric(
+            "Eligible Markets",
+            f"{len(summary_data):,}",
+        )
+
+    with metric_2:
+
+        if not selected_states:
+
+            st.metric(
+                "States Represented",
+                f"{summary_data['state_code'].nunique():,}",
+            )
+
+        elif len(selected_states) == 1:
+
+            st.metric(
+                "State",
+                selected_states[0],
+            )
+
+        else:
+
+            st.metric(
+                "States Selected",
+                f"{len(selected_states):,}",
+            )
+
+    with metric_3:
+
+        median_home_value = (
+            summary_data["home_value"].median()
+        )
+
+        st.metric(
+            "Median Home Value",
+            f"${median_home_value:,.0f}",
+        )
+
+    with metric_4:
+
+        median_score = (
+            summary_data["avg_scenario_score"].median()
+        )
+
+        st.metric(
+            "Median Scenario Score",
+            f"{median_score:.2f}",
+        )
+
+    st.markdown("---")
+
+    # --------------------------------------------------------
+    # MARKET FILTERS
+    # --------------------------------------------------------
+
+    st.markdown("### Screen Markets")
+
+    filter_col_1, filter_col_2 = st.columns(2)
+
+    max_population = int(
+        national_data["population"]
+        .dropna()
+        .max()
+    )
+
+    max_rank = int(
+        national_data["national_robust_rank"].max()
+    )
+
+    with filter_col_1:
+
+        population_floor = st.number_input(
+            "Minimum population",
+            min_value=10000,
+            max_value=max_population,
+            value=10000,
+            step=10000,
+            key="national_population_filter",
+        )
+
+    with filter_col_2:
+
+        limit_by_rank = st.checkbox(
+            "Limit by national rank",
+            value=False,
+            key="national_rank_limit_toggle",
+        )
+
+        if limit_by_rank:
+
+            max_national_rank = st.number_input(
+                "Maximum national robust rank",
+                min_value=1,
+                max_value=max_rank,
+                value=min(100, max_rank),
+                step=25,
+                key="national_rank_filter",
+            )
+
+        else:
+
+            max_national_rank = max_rank
+
+    # --------------------------------------------------------
+    # APPLY FILTERS
+    # --------------------------------------------------------
+
+    filtered_national = national_data.copy()
+
+    if selected_states:
+
+        filtered_national = filtered_national[
+            filtered_national["state_code"].isin(
+                selected_states
+            )
+        ]
+
+    filtered_national = filtered_national[
+        filtered_national["population"]
+        >= population_floor
+    ]
+
+    filtered_national = filtered_national[
+        filtered_national["national_robust_rank"]
+        <= max_national_rank
+    ]
+
+    filtered_national = (
+        filtered_national
+        .sort_values("national_robust_rank")
+        .reset_index(drop=True)
+    )
+
+    st.caption(
+        f"Showing {len(filtered_national):,} markets "
+        f"from {len(summary_data):,} eligible markets "
+        "in the current state selection."
+    )
+
+    # --------------------------------------------------------
+    # NATIONAL MARKET TABLE
+    # --------------------------------------------------------
+
+    national_display = filtered_national[
+        [
+            "national_robust_rank",
+            "state_robust_rank",
+            "city",
+            "state_code",
+            "population",
+            "home_value",
+            "population_growth_5yr_pct",
+            "home_value_cagr_5yr_pct",
+            "growth_score",
+            "demand_score",
+            "supply_score",
+            "avg_scenario_score",
+            "rank_stddev",
+        ]
+    ].copy()
+
+    national_display = national_display.rename(
+        columns={
+            "national_robust_rank": "National Rank",
+            "state_robust_rank": "State Rank",
+            "city": "City",
+            "state_code": "State",
+            "population": "Population",
+            "home_value": "Home Value",
+            "population_growth_5yr_pct": "5Y Population Growth",
+            "home_value_cagr_5yr_pct": "5Y Home Value CAGR",
+            "growth_score": "Growth",
+            "demand_score": "Demand",
+            "supply_score": "Supply",
+            "avg_scenario_score": "Scenario Score",
+            "rank_stddev": "Rank Std. Dev.",
+        }
+    )
+
+    st.dataframe(
+        national_display,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Home Value": st.column_config.NumberColumn(
+                format="$%.0f"
+            ),
+            "5Y Population Growth": (
+                st.column_config.NumberColumn(
+                    format="%.2f%%"
+                )
+            ),
+            "5Y Home Value CAGR": (
+                st.column_config.NumberColumn(
+                    format="%.2f%%"
+                )
+            ),
+            "Growth": st.column_config.NumberColumn(
+                format="%.2f"
+            ),
+            "Demand": st.column_config.NumberColumn(
+                format="%.2f"
+            ),
+            "Supply": st.column_config.NumberColumn(
+                format="%.2f"
+            ),
+            "Scenario Score": (
+                st.column_config.NumberColumn(
+                    format="%.2f"
+                )
+            ),
+            "Rank Std. Dev.": (
+                st.column_config.NumberColumn(
+                    format="%.2f"
+                )
+            ),
+        },
+    )
+
+# ============================================================
+# TEXAS DEEP DIVE
+# ============================================================
+
+with texas_tab:
+
+    texas_data = load_texas_decision_table().copy()
+
+    st.markdown(
+        compact_html(
+            """
+            <h2 class="section-heading">
+                Texas Market Deep Dive
+            </h2>
+
+            <div class="section-subtitle">
+                Compare eligible Texas housing markets using
+                structural growth, demand conditions, supply pressure,
+                and cross-scenario ranking robustness.
+            </div>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
+    st.caption(
+        "Texas markets are ranked within the same national "
+        "screening framework used in the National Screener."
+    )
+
+    metric_1, metric_2, metric_3, metric_4 = st.columns(4)
+
+    with metric_1:
+        st.metric(
+            "Eligible Texas Markets",
+            f"{len(texas_data):,}",
+        )
+
+    with metric_2:
+        st.metric(
+            "Median Population",
+            f"{texas_data['population'].median():,.0f}",
+        )
+
+    with metric_3:
+        st.metric(
+            "Median Home Value",
+            f"${texas_data['home_value'].median():,.0f}",
+        )
+
+    with metric_4:
+        st.metric(
+            "Median Scenario Score",
+            f"{texas_data['avg_scenario_score'].median():.2f}",
+        )
+
+    st.markdown("---")
+
+with texas_tab:
+
+    st.markdown("### Explore Texas Markets")
+
+    # --------------------------------------------------------
+    # TEXAS FILTERS
+    # --------------------------------------------------------
+
+    filter_col_1, filter_col_2, filter_col_3 = st.columns(3)
+
+    max_tx_rank = int(
+        texas_data["state_robust_rank"].max()
+    )
+
+    max_tx_population = int(
+        texas_data["population"].dropna().max()
+    )
+
+    max_tx_home_value = int(
+        texas_data["home_value"].dropna().max()
+    )
+
+    with filter_col_1:
+        texas_rank_limit = st.number_input(
+            "Maximum Texas rank",
+            min_value=1,
+            max_value=max_tx_rank,
+            value=max_tx_rank,
+            step=10,
+            key="texas_rank_filter",
+        )
+
+    with filter_col_2:
+        minimum_tx_population = st.number_input(
+            "Minimum population",
+            min_value=10000,
+            max_value=max_tx_population,
+            value=10000,
+            step=10000,
+            key="texas_population_filter",
+        )
+
+    with filter_col_3:
+        maximum_home_value = st.number_input(
+            "Maximum home value",
+            min_value=0,
+            max_value=max_tx_home_value,
+            value=max_tx_home_value,
+            step=50000,
+            key="texas_home_value_filter",
+        )
+
+
+    # --------------------------------------------------------
+    # APPLY FILTERS
+    # --------------------------------------------------------
+
+    filtered_texas = texas_data.copy()
+
+    filtered_texas = filtered_texas[
+        filtered_texas["state_robust_rank"]
+        <= texas_rank_limit
+    ]
+
+    filtered_texas = filtered_texas[
+        filtered_texas["population"]
+        >= minimum_tx_population
+    ]
+
+    filtered_texas = filtered_texas[
+        filtered_texas["home_value"]
+        <= maximum_home_value
+    ]
+
+    filtered_texas = (
+        filtered_texas
+        .sort_values("state_robust_rank")
+        .reset_index(drop=True)
+    )
+
+    st.caption(
+        f"Showing {len(filtered_texas):,} Texas markets "
+        f"from {len(texas_data):,} eligible Texas markets."
+    )
+
+    # --------------------------------------------------------
+    # TEXAS RANKING TABLE
+    # --------------------------------------------------------
+
+    texas_display = filtered_texas[
+        [
+            "state_robust_rank",
+            "national_robust_rank",
+            "city",
+            "population",
+            "home_value",
+            "population_growth_5yr_pct",
+            "home_value_cagr_5yr_pct",
+            "growth_score",
+            "demand_score",
+            "supply_score",
+            "avg_scenario_score",
+            "rank_stddev",
+        ]
+    ].copy()
+
+    texas_display = texas_display.rename(
+        columns={
+            "state_robust_rank": "Texas Rank",
+            "national_robust_rank": "National Rank",
+            "city": "City",
+            "population": "Population",
+            "home_value": "Home Value",
+            "population_growth_5yr_pct": "5Y Population Growth",
+            "home_value_cagr_5yr_pct": "5Y Home Value CAGR",
+            "growth_score": "Growth",
+            "demand_score": "Demand",
+            "supply_score": "Supply",
+            "avg_scenario_score": "Scenario Score",
+            "rank_stddev": "Rank Std. Dev.",
+        }
+    )
+
+    st.dataframe(
+        texas_display,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Home Value": st.column_config.NumberColumn(
+                format="$%.0f"
+            ),
+            "5Y Population Growth": st.column_config.NumberColumn(
+                format="%.2f%%"
+            ),
+            "5Y Home Value CAGR": st.column_config.NumberColumn(
+                format="%.2f%%"
+            ),
+            "Growth": st.column_config.NumberColumn(
+                format="%.2f"
+            ),
+            "Demand": st.column_config.NumberColumn(
+                format="%.2f"
+            ),
+            "Supply": st.column_config.NumberColumn(
+                format="%.2f"
+            ),
+            "Scenario Score": st.column_config.NumberColumn(
+                format="%.2f"
+            ),
+            "Rank Std. Dev.": st.column_config.NumberColumn(
+                format="%.2f"
+            ),
+        },
+    )
+
+    st.markdown("---")
+
+    st.markdown("### Market Deep Dive")
+
+    texas_city_options = (
+        filtered_texas["city"]
+        .dropna()
+        .sort_values()
+        .tolist()
+    )
+
+    selected_texas_city = st.selectbox(
+        "Select a Texas market",
+        options=texas_city_options,
+        key="texas_market_deep_dive",
+    )
+
+    selected_tx_market = (
+        filtered_texas[
+            filtered_texas["city"]
+            == selected_texas_city
+        ]
+        .iloc[0]
+    )
+
+    deep_1, deep_2, deep_3, deep_4 = st.columns(4)
+
+    with deep_1:
+        st.metric(
+            "Texas Rank",
+            f"#{int(selected_tx_market['state_robust_rank'])}",
+        )
+
+    with deep_2:
+        st.metric(
+            "National Rank",
+            f"#{int(selected_tx_market['national_robust_rank'])}",
+        )
+
+    with deep_3:
+        st.metric(
+            "Home Value",
+            f"${selected_tx_market['home_value']:,.0f}",
+        )
+
+    with deep_4:
+        st.metric(
+            "Population",
+            f"{selected_tx_market['population']:,.0f}",
+        )
+
+    deep_5, deep_6, deep_7, deep_8 = st.columns(4)
+
+    with deep_5:
+        st.metric(
+            "5Y Population Growth",
+            f"{selected_tx_market['population_growth_5yr_pct']:.2f}%",
+        )
+
+    with deep_6:
+        st.metric(
+            "5Y Home Value CAGR",
+            f"{selected_tx_market['home_value_cagr_5yr_pct']:.2f}%",
+        )
+
+    with deep_7:
+        st.metric(
+            "Scenario Score",
+            f"{selected_tx_market['avg_scenario_score']:.2f}",
+        )
+
+    with deep_8:
+        st.metric(
+            "Rank Volatility",
+            f"{selected_tx_market['rank_stddev']:.2f}",
+        )
+
+    component_chart = go.Figure()
+
+    component_chart.add_bar(
+        x=[
+            "Growth",
+            "Demand",
+            "Supply",
+        ],
+        y=[
+            selected_tx_market["growth_score"],
+            selected_tx_market["demand_score"],
+            selected_tx_market["supply_score"],
+        ],
+    )
+
+    component_chart.update_layout(
+        title=f"{selected_texas_city} Score Components",
+        xaxis_title="Component",
+        yaxis_title="Score",
+        yaxis=dict(
+            range=[0, 100]
+        ),
+        showlegend=False,
+        margin=dict(
+            l=20,
+            r=20,
+            t=60,
+            b=20,
+        ),
+    )
+
+    st.plotly_chart(
+        component_chart,
+        width="stretch",
+    )
+
+    st.markdown("---")
+    st.markdown("### Top Texas Markets")
+
+    st.caption(
+        "Compare the highest-ranked Texas markets using the "
+        "cross-scenario robust ranking."
+    )
+
+    top_n = st.slider(
+        "Number of markets to compare",
+        min_value=5,
+        max_value=20,
+        value=10,
+        step=1,
+        key="texas_top_n",
+    )
+
+    top_texas = (
+        filtered_texas
+        .sort_values("state_robust_rank")
+        .head(top_n)
+        .copy()
+    )
+
+    top_score_fig = go.Figure()
+
+    top_score_fig.add_bar(
+        x=top_texas["city"],
+        y=top_texas["avg_scenario_score"],
+        text=top_texas["avg_scenario_score"].round(2),
+        textposition="outside",
+    )
+
+    top_score_fig.update_layout(
+        title="Top Texas Markets by Scenario Score",
+        xaxis_title="Market",
+        yaxis_title="Scenario Score",
+        yaxis=dict(
+            range=[
+                0,
+                min(
+                    100,
+                    top_texas["avg_scenario_score"].max() + 10,
+                ),
+            ]
+        ),
+        margin=dict(
+            l=20,
+            r=20,
+            t=60,
+            b=20,
+        ),
+    )
+
+    st.plotly_chart(
+        top_score_fig,
+        width="stretch",
+    )
+
+    top_texas_display = top_texas[
+        [
+            "state_robust_rank",
+            "national_robust_rank",
+            "city",
+            "population",
+            "home_value",
+            "population_growth_5yr_pct",
+            "home_value_cagr_5yr_pct",
+            "growth_score",
+            "demand_score",
+            "supply_score",
+            "avg_scenario_score",
+        ]
+    ].copy()
+
+    top_texas_display = top_texas_display.rename(
+        columns={
+            "state_robust_rank": "TX Rank",
+            "national_robust_rank": "National Rank",
+            "city": "City",
+            "population": "Population",
+            "home_value": "Home Value",
+            "population_growth_5yr_pct": "5Y Pop Growth",
+            "home_value_cagr_5yr_pct": "5Y Home Value CAGR",
+            "growth_score": "Growth",
+            "demand_score": "Demand",
+            "supply_score": "Supply",
+            "avg_scenario_score": "Scenario Score",
+        }
+    )
+
+    st.dataframe(
+        top_texas_display,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Home Value": st.column_config.NumberColumn(
+                format="$%.0f"
+            ),
+            "5Y Pop Growth": st.column_config.NumberColumn(
+                format="%.2f%%"
+            ),
+            "5Y Home Value CAGR": st.column_config.NumberColumn(
+                format="%.2f%%"
+            ),
+            "Growth": st.column_config.NumberColumn(
+                format="%.2f"
+            ),
+            "Demand": st.column_config.NumberColumn(
+                format="%.2f"
+            ),
+            "Supply": st.column_config.NumberColumn(
+                format="%.2f"
+            ),
+            "Scenario Score": st.column_config.NumberColumn(
+                format="%.2f"
+            ),
+        },
+    )

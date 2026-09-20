@@ -460,6 +460,7 @@ def validate_table(
     required_columns,
     key_columns,
     numeric_columns,
+    allow_missing_numeric=False,
 ):
     checks = []
 
@@ -514,22 +515,97 @@ def validate_table(
         ),
     })
 
-    numeric_valid = all(
-        pd.to_numeric(
-            df[column],
+    numeric_valid = True
+    invalid_numeric_count = 0
+    missing_numeric_count = 0
+
+    for column in numeric_columns:
+
+        raw_values = df[column]
+
+        numeric_values = pd.to_numeric(
+            raw_values,
             errors="coerce",
-        ).notna().all()
-        for column in numeric_columns
-    )
+        )
+
+        # Treat genuinely blank / missing values separately from
+        # values that contain invalid non-numeric text.
+        blank_values = (
+            raw_values.isna()
+            | raw_values.astype(str).str.strip().isin(
+                [
+                    "",
+                    "nan",
+                    "None",
+                    "<NA>",
+                ]
+            )
+        )
+
+        invalid_values = (
+            ~blank_values
+            & numeric_values.isna()
+        )
+
+        invalid_numeric_count += int(
+            invalid_values.sum()
+        )
+
+        missing_numeric_count += int(
+            blank_values.sum()
+        )
+
+        # Every measurement column must still contain at least
+        # some usable numeric observations.
+        if not numeric_values.notna().any():
+            numeric_valid = False
+
+        # Actual non-numeric values always fail validation.
+        if invalid_values.any():
+            numeric_valid = False
+
+        # For strict tables, missing numeric values also fail.
+        if (
+            not allow_missing_numeric
+            and blank_values.any()
+        ):
+            numeric_valid = False
+
+
+    if numeric_valid:
+
+        if (
+            allow_missing_numeric
+            and missing_numeric_count > 0
+        ):
+            numeric_detail = (
+                "Numeric fields are valid. "
+                f"{missing_numeric_count:,} source measurements "
+                "are missing and will remain null."
+            )
+        else:
+            numeric_detail = (
+                "All required measurements are numeric."
+            )
+
+    else:
+
+        if invalid_numeric_count > 0:
+            numeric_detail = (
+                f"{invalid_numeric_count:,} measurements contain "
+                "invalid non-numeric values."
+            )
+        else:
+            numeric_detail = (
+                "One or more required numeric measurements "
+                "are missing."
+            )
+
 
     checks.append({
         "name": f"{name}: numeric values",
         "passed": numeric_valid,
-        "detail": (
-            "All required measurements are numeric."
-            if numeric_valid
-            else "One or more measurements are blank or non-numeric."
-        ),
+        "detail": numeric_detail,
     })
 
     return checks
@@ -561,6 +637,7 @@ def validate_sources(
             "Months_of_Supply",
             "Sale_to_List_Pct",
         ],
+        allow_missing_numeric=True,
     )
 
     checks += validate_table(

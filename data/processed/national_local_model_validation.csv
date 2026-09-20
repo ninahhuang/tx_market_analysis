@@ -1,0 +1,10 @@
+City,National_Model_Rank,Local_Model_Rank,Rank_Gap,Texas_Percentile,National_Growth_Score,National_Demand_Score,National_Supply_Score,Long_Term_Fundamentals_Score,Current_Market_Momentum_Score,Robustness_Profile,Current_Market_Regime,Market_Quadrant
+Prosper,1,8,-7,91.09311740890689,94.63,20.63,25.25,57.25822362452645,31.464927182666905,Consistently Lower Ranked,Mixed / Transitional,Long-Term Strength / Weak Current Conditions
+Frisco,1,6,-5,90.2834008097166,89.54,32.32,8.92,48.93056758542085,47.91860639679566,Consistently Lower Ranked,Relatively Stable,Long-Term Strength / Weak Current Conditions
+McKinney,3,5,-2,88.66396761133603,78.42,42.28,11.92,41.721329297013945,57.07181030769951,Consistently Lower Ranked,Mixed / Transitional,Strong in Both
+Plano,4,1,3,80.16194331983806,55.56,45.48,44.17,42.94187020713473,75.60696649148468,Highly Robust,Relatively Stable,Strong in Both
+Celina,5,4,1,64.77732793522267,89.64,11.67,4.99,91.01702973788994,21.49823878944866,Moderately Robust,Demand Growth / Supply Pressure,Strong in Both
+Princeton,6,7,-1,61.53846153846154,52.43,46.9,11.37,31.073316475412508,58.98298245521156,Weight Sensitive,Recovery / Repricing,Weaker in Both
+Melissa,7,2,5,56.2753036437247,72.44,13.41,33.73,62.49508974564717,54.61278716537395,Moderately Robust,Mixed / Transitional,Current Strength / Weaker Structural Score
+Anna,8,9,-1,45.74898785425101,56.9,32.52,11.38,42.74542550262569,36.01047521614734,Consistently Lower Ranked,Demand Growth / Supply Pressure,Weaker in Both
+Richardson,9,3,6,29.1497975708502,35.7,40.45,24.59,47.27348897151733,64.31616042807502,Moderately Robust,Relatively Stable,Current Strength / Weaker Structural Score
